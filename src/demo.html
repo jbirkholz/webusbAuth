@@ -1,0 +1,72 @@
+<html>
+<head>
+  <script type="module">
+  /**
+   * Demo showing smart card based authentication using WebUSB and CCID
+   * TODO: implement authentication
+   *
+   * Copyright (C) 2017, Jan Birkholz <jbirkhol@informatik.hu-berlin.de>
+   */
+  import * as ccid from "./ccid.js";
+  import * as ifd from "./ifd.js";
+  import * as iso78164 from "./7816-4.js";
+  import * as util from "./util.js";
+
+  /**
+   * Control displayed status HTML element
+   */
+  let status = {
+    clear: () => {
+      document.querySelector("#status").textContent = "";
+    },
+    show: (message) => {
+      document.querySelector("#status").textContent = message;
+    }
+  };
+
+  window.addEventListener("load",()=>{
+    status.clear();
+    ifd.init().catch(error=>{status.show(error);throw error;});
+
+    document.getElementById("requestDevice").addEventListener("click",(clickEvent)=>{
+      status.clear();
+      return ifd.requestDevice(clickEvent).catch(error=>{status.show(error);});
+    });
+    document.getElementById("getDevices").addEventListener("click",()=>{
+      //TODO reimplement
+    }); //end of getDevices
+
+    document.getElementById("test").addEventListener("click",()=>{
+      let getChallengeAPDU = iso78164.apdus.GET_CHALLENGE(1);
+      return ifd.internalTransceive(ifd.USBDevice,1,2,ccid.ccidMessages.PC_to_RDR_IccPowerOn()).then(()=>{
+        return ifd.internalTransceive(ifd.USBDevice,1,2,ccid.ccidMessages.PC_to_RDR_XfrBlock(0,0,new Uint8Array([0x00,0x84,0x00,0x00,0xFF]))).then(arrayBuffer => {
+          util.log(arrayBuffer);
+        });
+      });
+    });
+
+    document.getElementById("proxy").addEventListener("click",()=>{
+      //server eg https://github.com/dpallot/simple-websocket-server
+      //first demo receives apdu on WebSocket and acts as a simple proxy, no protocol
+      //(1) open websocket connection to host
+      const socket = new WebSocket('ws://localhost:8000');
+      socket.addEventListener("message",event=>{
+        let msg = JSON.parse(event.data); //msg: {apdu:}
+
+      });
+      //(2) send and receive apdus
+    });
+
+  }); //end of load
+  </script>
+</head>
+<body>
+  <p><button id="requestDevice">connect</button></p>
+  <p id="debug">
+    <button id="getDevices" style="display:none">getDevices</button>
+    <button id="test">test</button>
+    <button id="proxy" style="display:none">proxy apdus</button>
+  </p>
+  <p>Status: <span id="status"></span></p>
+</body>
+</html>
