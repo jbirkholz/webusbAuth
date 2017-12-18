@@ -362,10 +362,76 @@ let interfaceDescriptors = parseSmartCardInterfaceDescriptors(configurationDataV
 return interfaceDescriptors;
 }
 
+/**
+ * Checks CCID status and error bytes.
+ * @param {ArrayBuffer} response - CCID response message
+ * @param {Uint8Array} originalMessage - sent CCID message (associated with this transfer)
+ * @return {Object} status object, containing icc and error status
+ */
+function checkResponse(response,originalMessage) {
+  if(response.length<10) throw new Error("Response has no valid CCID header.");
+  let responseDataView = new DataView(response,0,response.length);
+  if(typeof originalMessage !=='undefined') { //check slot and sequence number
+    let originalbSlot = originalMessage[5];
+    let originalbSeq = originalMessage[6];
+
+    let bSlot = responseDataView.getUint8(5);
+    let bSeq = responseDataView.getUint8(6);
+    if(bSlot!==originalbSlot) throw new Error("bSlot of response does not match sent message.");
+    if(bSeq!==originalbSeq) throw new Error("bSeq number of response does not match sent message.");
+  }
+
+  let bStatus = responseDataView.getUint8(7);
+  //console.log("bStatus: "+bStatus.toString(16)+"h");
+  let bmlCCStatus = bStatus& 0x03; //mask first 2 bits(=3h), others get zeroed. Independent of endian.
+  let bmCommandStatus = bStatus>>6 ; //bits get shifted to start. prepending bits are zero
+  let bmlCCStatusMessages = {
+    0: "ICC present and powered on.",
+    1: "ICC present and inactive.",
+    2: "No ICC present."
+  };
+  let bmlCCStatusMessage = bmlCCStatusMessages[bmlCCStatus];
+
+  let errorTable = { //TODO: add comments for missing ranges
+    0xFF: 'CMD_ABORTED',
+    0xFE: 'ICC_MUTE',
+    0xFD: 'XFR_PARITY_ERROR',
+    0xFC: 'XFR_OVERRUN',
+    0xFB: 'HW_ERROR',
+    0xF8: 'BAD_ATR_TS',
+    0xF7: 'BAD_ATR_TCK',
+    0xF6: 'ICC_PROTOCOL_NOT_SUPPORTED',
+    0xF5: 'ICC_CLASS_NOT_SUPPORTED',
+    0xF4: 'PROCEDURE_BYTE_CONFLICT',
+    0xF3: 'DEACTIVATED_PROTOCOL',
+    0xF2: 'BUSY_WITH_AUTO_SEQUENCE',
+    0xF0: 'PIN_TIMEOUT',
+    0xEF: 'PIN_CANCELLED',
+    0xE0: 'CMD_SLOT_BUSY',
+    0x00: 'Command not supported'
+  };
+
+  let errorMessage = "";
+  let bError = responseDataView.getUint8(8);
+  if(bmCommandStatus===1) {
+    if(errorTable[bError]) errorMessage = errorTable[bError]; else errorMessage = "Unknown error: 0x"+bError.toString(16);
+  }
+
+  //RDR_to_PC_SlotStatus specific error messages
+  //TODO add other Response Message Specific answers
+  if(bmCommandStatus===1 && bmlCCStatus===2 && bError===5) { errorMessage = "bSlot does not exist";}
+  if(bmCommandStatus===1 && bmlCCStatus===2 && bError==0xFE) {errorMessage = "No ICC present";}
+  if(bmCommandStatus===1 && bmlCCStatus===1 && bError==0xFB) { errorMessage = "Hardware error";}
+  if(bmCommandStatus===1 && bmlCCStatus===0 && bError==0) { errorMessage = "Command not supported";}
+  if(bmCommandStatus===1 && (bmlCCStatus===0 || bmlCCStatus===1 || bmlCCStatus===2) && bError==0xE0) { errorMessage = "";}
+
+  return {'iccStatus': bmlCCStatus, 'iccStatusMessage': bmlCCStatusMessage, 'errorMessage': errorMessage};
+}
+
 //TODO: implement CCID handler (doing send and receive)
 //TODO: implement response checker (status and error bytes), outputting errors
 
 //TODO: check reader dwFeatures if it has autovoltage, autobaud, ... since we do not manually configure
 
 
-export {ccidMessages, parseConfigurationDescriptor};
+export {ccidMessages, parseConfigurationDescriptor, checkResponse};
