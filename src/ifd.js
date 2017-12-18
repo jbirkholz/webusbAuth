@@ -125,21 +125,16 @@ function internalTransceive (device, endpointOut, endpointIn, message) {
   if(device===null) throw new Error("No device connected.");
   let ccidMaxMessageSize = Reader.descriptor.SmartCardClassDescriptor.dwMaxCCIDMessageLength;
   if(message.length>ccidMaxMessageSize) throw new Error("Message too large. Max length is "+ccidMaxMessageSize+"bytes."); //TODO: support CCID chunking. Check Reader?
-  util.log("out: "+endpointOut+", in: "+endpointIn+", msg: "+message);
+  util.log("-> out: "+endpointOut+", in: "+endpointIn+", msg: "+util.array2HexString(message));
   //TODO: check: result.status
   //TODO: transferIn result.status === "bubble" chaining is on?
   return device.transferOut(endpointOut,message).then(outResult=>{
-    util.log(outResult);
-    //console.log(outResult.status);
-    //printHexArray(outResult);
     util.log(outResult);
     //TODO: check for timeout, maybe clearHalt
     //TODO: set transferIn length to ccid class descriptor value
     return device.transferIn(endpointIn,ccidMaxMessageSize).then(inResult=>{
       util.log(inResult);
-      //console.log(inResult.status);
-      //printHexArray(inResult.data.buffer);
-      util.log(inResult);
+      util.log("<- "+util.array2HexString(inResult.data.buffer));
       return inResult.data.buffer;
     }); //.catch(error=>{console.log(error);});
   });
@@ -148,8 +143,8 @@ function internalTransceive (device, endpointOut, endpointIn, message) {
 /**
  * Send message and receive answer.
  * - no CCID chaining support
- * @param  {[type]} message [description]
- * @return {Promise<ArrayBuffer>}         [description]
+ * @param  {ArrayBuffer} message - CCID message (including header)
+ * @return {Promise<ArrayBuffer>}  - Promise resolving to repsonse message
  */
 function transceive (message) {
   if(Device==null) throw new Error("No device connected");
@@ -160,7 +155,13 @@ function transceive (message) {
   let ccidMaxMessageSize = Reader.descriptor.SmartCardClassDescriptor.dwMaxCCIDMessageLength;
   if(message.length>ccidMaxMessageSize) throw new Error("Message too large. Max length is "+ccidMaxMessageSize+"bytes."); //TODO: support CCID chunking. Check Reader?
   return device.transferOut(bulkOutEndpoint,message).then(outResult=>{
+    if(outResult.status!=="ok") throw new Error("Error while transferring data to CCID.");
+    util.log("-> "+util.array2HexString(message));
     return device.transferIn(bulkInEndpoint,ccidMaxMessageSize).then(inResult=>{
+      if(inResult.status!=="ok") throw new Error("Error while transferring data from CCID.");
+      let ccidStatus = ccid.checkResponse(inResult.data.buffer,message);
+      util.log("<- "+util.array2HexString(inResult.data.buffer));
+      if (ccidStatus.errorMessage.length > 0) throw new Error(ccidStatus.errorMessage); //util.log(ccidStatus.errorMessage);
       return inResult.data.buffer;
     });
   });
@@ -390,7 +391,8 @@ function configure (device, interfaces) {
   //let reader = staticConfiguration(1,1,0);
   //let reader = supportedConfiguration();
   //let reader =
-  return getAutodetectConfiguration().then(reader=>{return configureReader(reader, device, interfaces);});
+  return getSupportedConfiguration().then(reader=>{return configureReader(reader, device, interfaces);});
+  //return getAutodetectConfiguration().then(reader=>{return configureReader(reader, device, interfaces);});
 }
 
 
@@ -402,7 +404,7 @@ function configure (device, interfaces) {
 function init (device) { //TODO reset device? already done in ControlTransfer
   let initDevice = (device) => {
     Device = device;
-    window.myusb = device; //TODO: remove debug variable
+    window.myusb = Reader; //TODO: remove debug variable
     //util.log(device); //log'd in Reader obj
     return getConfigurationDescriptor(device).then((USBSmartCardInterfaces)=> {
       Interfaces = USBSmartCardInterfaces;

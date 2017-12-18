@@ -26,7 +26,7 @@
 
   window.addEventListener("load",()=>{
     status.clear();
-    ifd.init().catch(error=>{status.show(error);throw error;});
+    ifd.init().catch(error=>{status.show(error);util.log(error,true);throw error;});
 
     document.getElementById("requestDevice").addEventListener("click",(clickEvent)=>{
       status.clear();
@@ -38,23 +38,58 @@
 
     document.getElementById("test").addEventListener("click",()=>{
       let getChallengeAPDU = iso78164.apdus.GET_CHALLENGE(1);
-      return ifd.internalTransceive(ifd.USBDevice,1,2,ccid.ccidMessages.PC_to_RDR_IccPowerOn()).then(()=>{
+      return ifd.transceive(ccid.ccidMessages.PC_to_RDR_IccPowerOn()).then(()=>{
+        return ifd.transceive(ccid.ccidMessages.PC_to_RDR_XfrBlock(0,0,new Uint8Array([0x00,0x84,0x00,0x00,0xFF]))).then(arrayBuffer => {
+          util.log(arrayBuffer);
+        });
+      }).catch(error=>{status.show(error);util.log(error,true);throw error;});
+      /*return ifd.internalTransceive(ifd.USBDevice,1,2,ccid.ccidMessages.PC_to_RDR_IccPowerOn()).then(()=>{
         return ifd.internalTransceive(ifd.USBDevice,1,2,ccid.ccidMessages.PC_to_RDR_XfrBlock(0,0,new Uint8Array([0x00,0x84,0x00,0x00,0xFF]))).then(arrayBuffer => {
           util.log(arrayBuffer);
         });
-      });
+      });*/
     });
 
+
+
+    let socket = null;
     document.getElementById("proxy").addEventListener("click",()=>{
       //server eg https://github.com/dpallot/simple-websocket-server
       //first demo receives apdu on WebSocket and acts as a simple proxy, no protocol
       //(1) open websocket connection to host
-      const socket = new WebSocket('ws://localhost:8000');
-      socket.addEventListener("message",event=>{
-        let msg = JSON.parse(event.data); //msg: {apdu:}
+      let sendMessage = () => {
+        //socket.send("some text"); //send dataTypes: USVString(UTF-8), ArrayBuffer(View), Blob
+        socket.send(new Uint8Array([0x01,0x02]));
+      };
+      if(socket === null) {
+        socket = new WebSocket('ws://localhost:8081');
+        socket.addEventListener("open", openEvent=>{
+          sendMessage();
+        });
+        socket.addEventListener("message",msgEvent=>{
+          console.log(msgEvent);
+          //let msg = JSON.parse(msgEvent.data); //msg: {apdu:}
+        });
+        socket.addEventListener("close",closeEvent=>{
+          console.log(closeEvent);
+        });
+      } else {
+        sendMessage();
+      }
 
-      });
+
+
+
+
+
       //(2) send and receive apdus
+      /*
+        How should the protocol look like?
+        - endianness is not a problem at this layer, we do not encode here
+        - security is  an issue because we create a new connection outside our HTTP TLS session. Does the server check if its this valid session: No.
+          + if session and socket are the same we do not need any versioning, because we know its a current version
+
+       */
     });
 
   }); //end of load
@@ -65,8 +100,9 @@
   <p id="debug">
     <button id="getDevices" style="display:none">getDevices</button>
     <button id="test">test</button>
-    <button id="proxy" style="display:none">proxy apdus</button>
+    <button id="proxy" style="display:block">proxy apdus</button>
   </p>
   <p>Status: <span id="status"></span></p>
+  <p><textarea id="log" readonly rows="24" cols="80"></textarea></p>
 </body>
 </html>

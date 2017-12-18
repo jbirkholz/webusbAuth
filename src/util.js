@@ -41,14 +41,19 @@ function array2HexString (array) {
 }
 
 var debug = true;
+let debugLog = document.getElementById("log");
 /**
  * custom debug log function, special casing byte arrays
  * @param  {Object} message - message to be outputted to dev console
  */
-function log(message) {
+function log(message,noconsole) {
  if(!debug) return;
  if(["ArrayBuffer","Uint8Array"].some(a=>a===message.constructor.name)) return printHexArray(message);
- console.log(message);
+ if(!noconsole) console.log(message);
+ if(debugLog) { //&& typeof message !== 'object'
+   debugLog.value += message+"\n";
+	 debugLog.scrollTop = debugLog.scrollHeight;
+ }
 }
 
 export {array2HexString, log};
