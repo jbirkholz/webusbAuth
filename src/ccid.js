@@ -187,19 +187,22 @@ PC_to_RDR_SetDataRateAndClockFrequency: (dwClockFrequency,dwDataRate) => {
 },
 //RDR_to_PC
 RDR_to_PC_DataBlock: (arrayBuffer) => { //
-  let ccidHeaderObject = defaultCcidHeader(arrayBuffer);
-  let bChainParameter = ccidHeader.getUint8(9);
+  let ccidHeader= defaultCcidHeader(arrayBuffer);
+  let ccidHeaderDataView = new DataView(arrayBuffer,0,10);
+  let bChainParameter = ccidHeaderDataView.getUint8(9);
   let abData = arrayBuffer.slice(10);
   return abData;
 },
 RDR_to_PC_SlotStatus: (arrayBuffer) => {
   let ccidHeader = defaultCcidHeader(arrayBuffer);
-  let bClockStatus = ccidHeader.getUint8(9);
+  let ccidHeaderDataView = new DataView(arrayBuffer,0,10);
+  let bClockStatus = ccidHeaderDataView.getUint8(9);
   return bClockStatus;
 },
 RDR_to_PC_Parameters: (arrayBuffer) => {
   let ccidHeader = defaultCcidHeader(arrayBuffer);
-  let bProtocolNum = ccidHeader.getUint8(9);
+  let ccidHeaderDataView = new DataView(arrayBuffer,0,10);
+  let bProtocolNum = ccidHeaderDataView.getUint8(9);
   let abProtocolDataStructure = arrayBuffer.slice(10);
   return abProtocolDataStructure;
 },
@@ -383,14 +386,14 @@ function checkResponse(response,originalMessage) {
 
   let bStatus = responseDataView.getUint8(7);
   //console.log("bStatus: "+bStatus.toString(16)+"h");
-  let bmlCCStatus = bStatus& 0x03; //mask first 2 bits(=3h), others get zeroed. Independent of endian.
+  let bmICCStatus = bStatus& 0x03; //mask first 2 bits(=3h), others get zeroed. Independent of endian.
   let bmCommandStatus = bStatus>>6 ; //bits get shifted to start. prepending bits are zero
-  let bmlCCStatusMessages = {
+  let bmICCStatusMessages = {
     0: "ICC present and powered on.",
     1: "ICC present and inactive.",
     2: "No ICC present."
   };
-  let bmlCCStatusMessage = bmlCCStatusMessages[bmlCCStatus];
+  let bmICCStatusMessage = bmICCStatusMessages[bmICCStatus];
 
   let errorTable = { //TODO: add comments for missing ranges
     0xFF: 'CMD_ABORTED',
@@ -419,13 +422,13 @@ function checkResponse(response,originalMessage) {
 
   //RDR_to_PC_SlotStatus specific error messages
   //TODO add other Response Message Specific answers
-  if(bmCommandStatus===1 && bmlCCStatus===2 && bError===5) { errorMessage = "bSlot does not exist";}
-  if(bmCommandStatus===1 && bmlCCStatus===2 && bError==0xFE) {errorMessage = "No ICC present";}
-  if(bmCommandStatus===1 && bmlCCStatus===1 && bError==0xFB) { errorMessage = "Hardware error";}
-  if(bmCommandStatus===1 && bmlCCStatus===0 && bError==0) { errorMessage = "Command not supported";}
-  if(bmCommandStatus===1 && (bmlCCStatus===0 || bmlCCStatus===1 || bmlCCStatus===2) && bError==0xE0) { errorMessage = "";}
+  if(bmCommandStatus===1 && bmICCStatus===2 && bError===5) { errorMessage = "bSlot does not exist";}
+  if(bmCommandStatus===1 && bmICCStatus===2 && bError==0xFE) {errorMessage = "No ICC present";}
+  if(bmCommandStatus===1 && bmICCStatus===1 && bError==0xFB) { errorMessage = "Hardware error";}
+  if(bmCommandStatus===1 && bmICCStatus===0 && bError==0) { errorMessage = "Command not supported";}
+  if(bmCommandStatus===1 && (bmICCStatus===0 || bmICCStatus===1 || bmICCStatus===2) && bError==0xE0) { errorMessage = "";}
 
-  return {'iccStatus': bmlCCStatus, 'iccStatusMessage': bmlCCStatusMessage, 'errorMessage': errorMessage};
+  return {'iccStatus': bmICCStatus, 'iccStatusMessage': bmICCStatusMessage, 'errorMessage': errorMessage};
 }
 
 //TODO: implement CCID handler (doing send and receive)

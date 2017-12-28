@@ -15,7 +15,7 @@
   /**
    * Control displayed status HTML element
    */
-  let status = {
+  let status = { //TODO: idea to put status object into ifd.js and subscribe to it here
     clear: () => {
       document.querySelector("#status").textContent = "";
     },
@@ -28,26 +28,25 @@
     status.clear();
     ifd.init().catch(error=>{status.show(error);util.log(error,true);throw error;});
 
+
     document.getElementById("requestDevice").addEventListener("click",(clickEvent)=>{
       status.clear();
-      return ifd.requestDevice(clickEvent).catch(error=>{status.show(error);});
+      return ifd.requestDevice(clickEvent).catch(error=>{status.show(error);util.log(error,true);throw error;});
     });
     document.getElementById("getDevices").addEventListener("click",()=>{
+      status.clear();
+
       //TODO reimplement
     }); //end of getDevices
 
     document.getElementById("test").addEventListener("click",()=>{
+      status.clear();
       let getChallengeAPDU = iso78164.apdus.GET_CHALLENGE(1);
-      return ifd.transceive(ccid.ccidMessages.PC_to_RDR_IccPowerOn()).then(()=>{
-        return ifd.transceive(ccid.ccidMessages.PC_to_RDR_XfrBlock(0,0,new Uint8Array([0x00,0x84,0x00,0x00,0xFF]))).then(arrayBuffer => {
-          util.log(arrayBuffer);
+      return ifd.initCard().then(()=>{
+        return ifd.sendAPDU(getChallengeAPDU).then(responseAPDU=>{
+          util.log(responseAPDU);
         });
-      }).catch(error=>{status.show(error);util.log(error,true);throw error;});
-      /*return ifd.internalTransceive(ifd.USBDevice,1,2,ccid.ccidMessages.PC_to_RDR_IccPowerOn()).then(()=>{
-        return ifd.internalTransceive(ifd.USBDevice,1,2,ccid.ccidMessages.PC_to_RDR_XfrBlock(0,0,new Uint8Array([0x00,0x84,0x00,0x00,0xFF]))).then(arrayBuffer => {
-          util.log(arrayBuffer);
-        });
-      });*/
+      });
     });
 
 
@@ -102,7 +101,7 @@
     <button id="test">test</button>
     <button id="proxy" style="display:block">proxy apdus</button>
   </p>
-  <p>Status: <span id="status"></span></p>
+  <p>Status: <span id="status"></span></p> <!-- rename to error -->
   <p><textarea id="log" readonly rows="24" cols="80"></textarea></p>
 </body>
 </html>

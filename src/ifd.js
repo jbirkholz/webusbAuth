@@ -30,6 +30,13 @@ var Interfaces;
 /**
  * Active reader configuration. Eg {vendorId:0x04E6,productId:0x5790,configuration:1,interface:0,alternate:0,bulkOutEndpoint:1,bulkInEndpoint:2,descriptor:{USBDescriptor},device:{USBDevice}}
  * @type {Object}
+ * {
+ * status: {
+ *   ifdhandlerMessage: "",
+ *   lastResponse: function() {return[statusByte,errorByte, SetterTimestamp]}
+ *   lastResponse: function(statusByte,errorByte) {}
+ * }
+ * }
  */
 var Reader;
 
@@ -160,6 +167,11 @@ function transceive (message) {
     return device.transferIn(bulkInEndpoint,ccidMaxMessageSize).then(inResult=>{
       if(inResult.status!=="ok") throw new Error("Error while transferring data from CCID.");
       let ccidStatus = ccid.checkResponse(inResult.data.buffer,message);
+
+      //cache status and error bytes
+      //let responseStatusAndErrorDataView = new DataView(inResult.data.buffer,7,2);
+      //Reader.status.lastResponse(responseStatusAndErrorDataView.getUint8(0), responseStatusAndErrorDataView.getUint8(1));
+
       util.log("<- "+util.array2HexString(inResult.data.buffer));
       if (ccidStatus.errorMessage.length > 0) throw new Error(ccidStatus.errorMessage); //util.log(ccidStatus.errorMessage);
       return inResult.data.buffer;
@@ -253,7 +265,7 @@ function configure (device, interfaces) {
     //trial and error. TODO: implement
     if(device.configurations.length>1) {
 
-      /**
+ /**
  * Tries to detect configuration of a already requested reader
  * @return {[type]} [description]
  */
@@ -320,31 +332,6 @@ function configure (device, interfaces) {
    })();
  }})();*/
 
-  let hasCard = ()=>{
-    return transceive(ccid.ccidMessages.PC_to_RDR_GetSlotStatus()).then(arrayBuffer => {
-      util.log(arrayBuffer);
-      let dataView = new DataView(arrayBuffer);
-      bStatus = dataView.getUint8(7);
-      bError = dataView.getUint8(8);
-
-      let bmlCCStatus = bStatus &0x03;
-      let bmCommandStatus = (bStatus>>6)&0x03;
-
-      if(bmlCCStatus === 0 || bmlCCStatus === 1) {
-        //card found
-        //console.log("card found");
-        return true;
-      } else {
-        //no card found
-        //console.log("card not found");
-        return false;
-      }
-    });
-  };
-
-
-
-
     //naive approach to take first Interface and create Reader configuration object
     /*util.log(interfaces);
     let selectedConfiguration = device.configurations.find(c=>c.configurationValue===device.configurations[0].configurationValue);
@@ -367,14 +354,29 @@ function configure (device, interfaces) {
 
     //reaching here means we couldn't configure it with any attempts above
     throw new Error("Please add your reader configuratino to suppoertedReaders variable. It could not be configured automatically.");
-  };
+  }; //end of autoconfiguration
 
   let configureReader = (reader, device, interfaces) => {
     Reader = reader;
     //util.log(interfaces);
     Reader.descriptor = interfaces.find(i=>i.bInterfaceNumber===reader.interface); //just selected interface
     Reader.device = device;
+    /*Reader.status = {
+      _ifdhandlerMessage: "No Smart Card reader configured.", //TODO: maybe without _ see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Functions/set
+      set ifdhandlerMessage(value) {
+        Reader.status._ifdhandlerMessage = value;
+      },
+      get ifdhandlerMessage() {
+        return Reader.status._ifdhandlerMessage;
+      },
+      _lastResponse: [],
+      lastResponse: function(statusByte, errorByte) {
+        if(typeof statusByte === 'undefined' && typeof errorByte === 'undefined') return _lastResponse;
+        Reader.status._lastResponse = [statusByte,errorByte,Date.now()];
+      }
+    };*/
     util.log(Reader);
+    window.myusb = Reader;
 
     if(reader) {
       return device.selectConfiguration(reader.configuration).then(()=>{ //almost always 1. Windows takes first configuration only.
@@ -404,7 +406,7 @@ function configure (device, interfaces) {
 function init (device) { //TODO reset device? already done in ControlTransfer
   let initDevice = (device) => {
     Device = device;
-    window.myusb = Reader; //TODO: remove debug variable
+    //window.myusb = Reader; //TODO: remove debug variable
     //util.log(device); //log'd in Reader obj
     return getConfigurationDescriptor(device).then((USBSmartCardInterfaces)=> {
       Interfaces = USBSmartCardInterfaces;
@@ -440,4 +442,70 @@ function registerUsbEventListeners () {
 }
 registerUsbEventListeners();
 
-export {Device as USBDevice, Interfaces as SmartCardInterfaces, listenInterrupt, internalTransceive,transceive, configure, requestDevice, init};
+//card functions
+
+/**
+ * asks ifd for status and returns attached card
+ * @return {Promise<Boolean>} attached card
+ */
+function hasCard() {
+  return getCardStatus().then(cardStatus=>{
+    if(cardStatus==0 || cardStatus ==1) return true;
+    if(cardStatus==2) return false;
+  });
+}
+
+/**
+ * returns ifd's card status
+ * @return {Promise<Number>} CCID bmICCStatus 0="no card",1="unpowered card",2="powered card"
+ */
+function getCardStatus() {
+  return transceive(ccid.ccidMessages.PC_to_RDR_GetSlotStatus()).then(arrayBuffer => {
+    util.log(arrayBuffer);
+    let dataView = new DataView(arrayBuffer);
+    bStatus = dataView.getUint8(7);
+    bError = dataView.getUint8(8);
+
+    let bmICCStatus = bStatus &0x03;
+    let bmCommandStatus = (bStatus>>6)&0x03; //unused
+    return bmICCStatus;
+  });
+}
+
+/**
+ * Powers/Initializes attached smart card
+ * @return {Promise<Boolean>} Promise resolving to successful power/init of smart card
+ */
+function initCard() {
+  return transceive(ccid.ccidMessages.PC_to_RDR_IccPowerOn()).then(arrayBuffer=>{
+    util.log(arrayBuffer);
+    let dataView = new DataView(arrayBuffer);
+    let bStatus = dataView.getUint8(7);
+    let bError = dataView.getUint8(8);
+
+    let bmICCStatus = bStatus &0x03;
+    if(bmICCStatus==0) return true;
+    if(bmICCStatus==1) throw new Error("Powering Smart Card failed."); //maybe add retry to initCard and check a 2nd time, in case user attaches card while initCard runs
+    if(bmICCStatus==2) return false;
+
+    //we should not get here
+    throw new Error("Activating Smart Card failed.");
+  });
+}
+
+/**
+ * Send and Receive smart card APDU
+ * @param  {Uint8Array} apdu - smart card APDU message
+ * @return {Promise<Uint8Array>} - smart card response APDU
+ */
+function sendAPDU(apdu) {
+  let ccidMessage = ccid.ccidMessages.PC_to_RDR_XfrBlock(0,0,apdu);
+  return transceive(ccidMessage).then(response=>{
+    let responseAPDU = new Uint8Array(ccid.ccidMessages.RDR_to_PC_DataBlock(response)); //error checking is done in transceive
+    return responseAPDU;
+  });
+}
+
+
+
+export {Device as USBDevice, Interfaces as SmartCardInterfaces, listenInterrupt, internalTransceive,transceive, configure, requestDevice, init, initCard, sendAPDU, hasCard};
