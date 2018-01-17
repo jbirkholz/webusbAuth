@@ -40,7 +40,6 @@ var Interfaces;
  */
 var Reader;
 
-
 /**
  * Get first available USBDevice, which user consented on
  * @return {USBDevice} found USB device
@@ -171,6 +170,10 @@ function transceive (message) {
       //cache status and error bytes
       //let responseStatusAndErrorDataView = new DataView(inResult.data.buffer,7,2);
       //Reader.status.lastResponse(responseStatusAndErrorDataView.getUint8(0), responseStatusAndErrorDataView.getUint8(1));
+
+      //issue CustomEvent readerStatus
+      let statusEvent = new CustomEvent('readerStatus',{detail: ccidStatus.iccStatusMessage}); //document.dispatchEvent //requires document. document.addEventListener("selectionFired", function (e) {e.detail.x
+      if(document) document.dispatchEvent(statusEvent);
 
       util.log("<- "+util.array2HexString(inResult.data.buffer));
       if (ccidStatus.errorMessage.length > 0) throw new Error(ccidStatus.errorMessage); //util.log(ccidStatus.errorMessage);
@@ -375,7 +378,7 @@ function configure (device, interfaces) {
         Reader.status._lastResponse = [statusByte,errorByte,Date.now()];
       }
     };*/
-    util.log(Reader);
+    util.log(Reader,false,true);
     window.myusb = Reader;
 
     if(reader) {
@@ -428,17 +431,20 @@ function init (device) { //TODO reset device? already done in ControlTransfer
  */
 function registerUsbEventListeners () {
   window.navigator.usb.addEventListener("connect", connectEvent => {
+    raiseLogEvent("reader connect");
     let device = connectEvent.device;
     return init(device);
-    //TODO: notify ui on changed device status. Maybe optional callback function parameter
   });
   window.navigator.usb.addEventListener("disconnect", connectEvent => {
-    util.log(connectEvent);
     //Device.close(); //cant call close on removed device
     Device = null;
     Interfaces = null;
-    //TODO: notify ui on changed device status
+    raiseLogEvent("reader disconnect");
   });
+  function raiseLogEvent(message) {
+    let logEvent = new CustomEvent('logEvent',{detail: message});
+    if(document) document.dispatchEvent(logEvent);
+  }
 }
 registerUsbEventListeners();
 

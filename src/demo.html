@@ -24,6 +24,14 @@
     }
   };
 
+  document.addEventListener("readerStatus", function (e) { //CustomEvent readerStatus, triggered by ifd.js on document
+    status.show(e.detail);
+  });
+  document.addEventListener("logEvent", function(e) {
+    util.log(e.detail);
+    status.clear();
+  });
+
   window.addEventListener("load",()=>{
     status.clear();
     ifd.init().catch(error=>{status.show(error);util.log(error,true);throw error;});
@@ -39,7 +47,7 @@
       //TODO reimplement
     }); //end of getDevices
 
-    document.getElementById("test").addEventListener("click",()=>{
+    document.getElementById("getChallenge").addEventListener("click",()=>{
       status.clear();
       let getChallengeAPDU = iso78164.apdus.GET_CHALLENGE(1);
       return ifd.initCard().then(()=>{
@@ -98,7 +106,7 @@
   <p><button id="requestDevice">connect</button></p>
   <p id="debug">
     <button id="getDevices" style="display:none">getDevices</button>
-    <button id="test">test</button>
+    <button id="getChallenge">Get challenge</button>
     <button id="proxy" style="display:block">proxy apdus</button>
   </p>
   <p>Status: <span id="status"></span></p> <!-- rename to error -->

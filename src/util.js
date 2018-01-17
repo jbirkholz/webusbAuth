@@ -46,11 +46,11 @@ let debugLog = document.getElementById("log");
  * custom debug log function, special casing byte arrays
  * @param  {Object} message - message to be outputted to dev console
  */
-function log(message,noconsole) {
+function log(message,noconsole,nolog) {
  if(!debug) return;
  if(["ArrayBuffer","Uint8Array"].some(a=>a===message.constructor.name)) return printHexArray(message);
  if(!noconsole) console.log(message);
- if(debugLog) { //&& typeof message !== 'object'
+ if(debugLog && !nolog) { //&& typeof message !== 'object'
    debugLog.value += message+"\n";
 	 debugLog.scrollTop = debugLog.scrollHeight;
  }
