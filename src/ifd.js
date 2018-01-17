@@ -512,6 +512,59 @@ function sendAPDU(apdu) {
   });
 }
 
+/**
+ * Sleep/wait specified amount of time.
+ * @param  {Number} waitTimeMs - time in milliseconds
+ * @return {Promise}            resolving after specified wait time
+ */
+let sleep = (waitTimeMs) => {
+  return new Promise(resolve => setTimeout(resolve, waitTimeMs));
+}
 
+/**
+ * Wait for a smart card to be connected to the Reader
+ * @param  {Number} [waitTime=0] - optional parameter to indicate waiting time before retry.
+ * @return {Promise.<Boolean>}              resolving to true when a smart card is available and powered on
+ */
+let waitForCard = (waitTime = 0) => {
+  return sleep(waitTime).then(()=>{
+    return hasCard().then(checkResult => {
+      if(checkResult===true) { //we got what we want
+        //console.log(true);
+        return Promise.resolve(true);
+      }
+      if(checkResult===false) { //contine waiting
+        return waitForCard(1000);
+        /*.catch(error=>{
+          console.log("waitForCard");
+          console.log(error);
+        });*/
+      }
+    });
+  });
+};
+
+/**
+* polls the reader for changed card status
+* @param {function} callbackFn - function called with new status
+* @returns {Object} containing exit function
+*/
+/*let pollCardStatus = (callbackFn) => {
+  if(typeof callbackFn !== "function") throw new Error("pollCardStatus parameter is no function.");
+  let cardStatus = 2;
+
+  let intervalId = window.setInterval(()=>{
+    if(Device===null) {
+      callbackFn("Reader disconnected.");
+    } else {
+      getCardStatus().then(bmICCStatus => {
+      if(cardStatus!= bmICCStatus) {
+        cardStatus = bmICCStatus; //0=present,active.1=no power.2=no card.
+        callbackFn(bmICCStatus);
+      }
+  });}
+  },2000);
+  return {exit:() => {clearInterval(intervalId);}};
+};*/
 
 export {Device as USBDevice, Interfaces as SmartCardInterfaces, listenInterrupt, internalTransceive,transceive, configure, requestDevice, init, initCard, sendAPDU, hasCard};
