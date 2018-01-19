@@ -99,6 +99,46 @@
        */
     });
 
+    let diceElement = document.querySelector("svg#diceSvg");
+    diceElement.addEventListener("click", clickEvent => {
+      status.clear();
+      let getChallengeAPDU = iso78164.apdus.GET_CHALLENGE(6); //6 bytes to have a multiple of 6 for the dice (252*6 and 4*6)
+      return ifd.initCard().then(()=>{
+        return ifd.sendAPDU(getChallengeAPDU).then(responseAPDU=>{
+          util.log(responseAPDU);
+          let statusWord = responseAPDU.slice(responseAPDU.length-2,responseAPDU.length);
+          if(statusWord[0]!== 0x90 && statusWord[1]!==0x00) throw new Error("Smart card signals error: "+statusWord[0]+" "+statusWord[1]);
+          let randomNumberBytes = responseAPDU.slice(0,responseAPDU.length-2); //1 Byte 0-255
+          util.log(randomNumberBytes);
+          let dicenumber = 7;
+          for(let i=0;i<randomNumberBytes.length;i++) {
+            let byte = randomNumberBytes[i];
+            if(byte)<252 { //multiple of 6
+              dicenumber=byte%6+1;
+            }
+            if(i==randomNumberBytes.length-1) { //we have 6 times a number >=252
+              //rebuild last number by combining last 2 bits of each of the 6 numbers
+              let combinedNumber = 0x00; //will be 0<=x<=23
+              for(j=0;j<randomNumberBytes.length;j++) {
+                let lastTwoBits = randomNumberBytes[j]&0x03; //-> 0, 1, 2 or 3
+                if(j>0) lastTwoBits++; //for summing up
+                combinedNumber+=lastTwoBits;
+              }
+              dicenumber = combinedNumber%6 +1;
+            }
+          }
+
+          //let firstRandomNumberByte = randomNumberBytes[0];
+          //let diceNumber = firstRandomNumberByte%6+1;
+          //diceElement.innerHTML = "<div style='text-align:center;vertical-align:middle;line-height:100px;'>"+diceNumber+"</div>";
+          let svgDice = document.querySelector("svg#diceSvg");
+          for(var item of document.querySelector("svg#diceSvg").children) {item.style.display ="none";}
+          if(isNaN(diceNumber)) diceNumber = 7; //error case
+          document.querySelector("svg#diceSvg :nth-child("+diceNumber+")").style.display = "block";
+        });
+      });
+    });
+
   }); //end of load
   </script>
 </head>
@@ -108,6 +148,46 @@
     <button id="getDevices" style="display:none">getDevices</button>
     <button id="getChallenge">Get challenge</button>
     <button id="proxy" style="display:block">proxy apdus</button>
+    <div>
+      <h3>dice example</h3>
+      <svg id="diceSvg" style="border: 1px solid black;width:100px;height:100px;">
+        <g style="display:none;"><circle cx="50" cy="50" r="10" fill="black" /></circle></g> <!-- stroke="green" stroke-width="4" -->
+        <g style="display:none;" fill="black" >
+          <circle cx="25" cy="25" r="10"/></circle>
+          <circle cx="75" cy="75" r="10"/></circle>
+        </g>
+        <g style="display:none;" fill="black" >
+          <circle cx="25" cy="25" r="10"/></circle>
+          <circle cx="50" cy="50" r="10"/></circle>
+          <circle cx="75" cy="75" r="10"/></circle>
+        </g>
+        <g style="display:none;" fill="black" >
+          <circle cx="25" cy="25" r="10"/></circle>
+          <circle cx="75" cy="25" r="10"/></circle>
+          <circle cx="75" cy="75" r="10"/></circle>
+          <circle cx="25" cy="75" r="10"/></circle>
+        </g>
+        <g style="display:none;" fill="black" >
+          <circle cx="20" cy="20" r="10"/></circle>
+          <circle cx="80" cy="20" r="10"/></circle>
+          <circle cx="50" cy="50" r="10"/></circle>
+          <circle cx="80" cy="80" r="10"/></circle>
+          <circle cx="20" cy="80" r="10"/></circle>
+        </g>
+        <g style="display:none;" fill="black" >
+          <circle cx="25" cy="25" r="10"/></circle>
+          <circle cx="75" cy="25" r="10"/></circle>
+          <circle cx="50" cy="25" r="10"/></circle>
+          <circle cx="50" cy="75" r="10"/></circle>
+          <circle cx="75" cy="75" r="10"/></circle>
+          <circle cx="25" cy="75" r="10"/></circle>
+        </g>
+        <g style="display:none;" fill="black" >
+          <text x="30" y="50">Error</text>
+        </g>
+      </svg>
+      Click square to roll dice.
+      </div>
   </p>
   <p>Status: <span id="status"></span></p> <!-- rename to error -->
   <p><textarea id="log" readonly rows="24" cols="80"></textarea></p>
