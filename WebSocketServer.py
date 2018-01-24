@@ -1,14 +1,18 @@
 """
-WebSocket based authentication server example (SimpleWebSocketServer) for Python3.6
+WebSocket based authentication server example (SimpleWebSocketServer) for Python >= 3.6
 - install using 'python3.6 -m pip install git+https://github.com/dpallot/simple-websocket-server.git'
 - use SSL/TLS as descibed at https://github.com/dpallot/simple-websocket-server
 """
+#python version check
+from sys import version_info
+if version_info[0] < 3 or (version_info[0] == 3 and version_info[1] < 6):
+    raise Exception("Python >= 3.6 required.")
+
 from SimpleWebSocketServer import SimpleWebSocketServer, WebSocket
 import secrets #https://docs.python.org/3.6/library/secrets.html#module-secrets
-from sys import version_info
 
 class AuthenticationExample(WebSocket):
-    def handleMessage(self): #WebSocket session, contained in self is automatically saved and loaded for each request
+    def handleMessage(self):    #WebSocket session, included in self is automatically saved and loaded for each request
         myChallenge = self.authentication.get('challenge')
         responseAPDU = self.data
         responseData = responseAPDU[0:len(responseAPDU)-2]
@@ -21,17 +25,13 @@ class AuthenticationExample(WebSocket):
 
             #calculate expected response result from challenge. Often a hash function is used.
             expectedResponse = bytearray(myChallenge)
-
-            #expectedResponse.append(0x00)
-            #expectedResponse.append(0x00)
-            #expectedResponse.append(0x00)
-            #expectedResponse.append(0x00)
-            #expectedResponse.append(0x00)
-            #expectedResponse.append(0x00)
+            #for i in range(6) #debug length fill to match size
+            #    expectedResponse.append(0x00)
 
             #compare expected response to received response data
             success = False
             if len(responseData) == len(expectedResponse):
+                #compare each byte
                 byteEqual = False
                 for index, responseByte in enumerate(responseData):
                     if responseByte == expectedResponse[index] and byteEqual == True:
@@ -52,6 +52,7 @@ class AuthenticationExample(WebSocket):
     def handleConnected(self):
         print(self.address, 'connected')
 
+        #WebSocket server controls client communication
         #example challenge
         challenge = secrets.token_bytes(16)
 
