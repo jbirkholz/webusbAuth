@@ -13,10 +13,11 @@ class AuthenticationExample(WebSocket):
         responseAPDU = self.data
         responseData = responseAPDU[0:len(responseAPDU)-2]
         responseStatus = responseAPDU[len(responseAPDU)-2:len(responseAPDU)]
+        print(self.address,'received', ''.join('%02x ' % byte for byte in responseAPDU))
 
         #check response APDU
         if responseStatus[0] == 0x90 and responseStatus[1] == 0x00:
-            print('check challenge\'s response')
+            #print('check challenge\'s response')
 
             #calculate expected response result from challenge. Often a hash function is used.
             expectedResponse = bytearray(myChallenge)
@@ -41,12 +42,12 @@ class AuthenticationExample(WebSocket):
                     success = True
 
             if success == True:
-                print('authentication successful')
+                print(self.address,'authentication successful')
             else:
-                print('authentication failed')
+                print(self.address,'authentication failed')
 
         else:
-            print('Error handling, authentication failed.')
+            print(self.address,'Error handling, authentication failed.')
 
     def handleConnected(self):
         print(self.address, 'connected')

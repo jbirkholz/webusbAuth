@@ -61,33 +61,49 @@
 
     let socket = null;
     document.getElementById("proxy").addEventListener("click",()=>{
-      //server eg https://github.com/dpallot/simple-websocket-server
-      //first demo receives apdu on WebSocket and acts as a simple proxy, no protocol
+      //demo receives apdu on WebSocket open and forwards single message
       //(1) open websocket connection to host
-      let sendMessage = () => {
-        //socket.send("some text"); //send dataTypes: USVString(UTF-8), ArrayBuffer(View), Blob
-        socket.send(new Uint8Array([0x01,0x02]));
-      };
       if(socket === null) {
-        socket = new WebSocket('ws://localhost:8081');
-        socket.addEventListener("open", openEvent=>{
-          sendMessage();
+        return ifd.initCard().then(initialized=>{ //init card
+          if(!initialized) throw new Error("Smart card init failed.");
+
+          //open WebSocket
+          socket = new WebSocket('ws://localhost:8081');
+          socket.addEventListener("open", openEvent=>{
+
+          });
+
+          socket.addEventListener("message",msgEvent=>{ //in demo, server controls interaction
+            let receivedAPDU = msgEvent.data;
+
+            //extract APDU from Blob
+            if(receivedAPDU instanceof Blob) {
+              let blobReader = new FileReader();
+              blobReader.addEventListener("loadend",event=>{
+                let apduArrayBuffer = blobReader.result;
+                let receivedAPDUUint8Array = new Uint8Array(apduArrayBuffer);
+
+                //send APDU to ccid
+                ifd.sendAPDU(receivedAPDUUint8Array).then(responseAPDU=>{
+                  util.log(responseAPDU);
+                  //forward response
+                  socket.send(responseAPDU);
+                });
+              });
+              blobReader.readAsArrayBuffer(receivedAPDU);
+            } else {
+              throw new Error("Blob encoded APDU expected from WebSocket server.")
+            }
+          });
+
+          socket.addEventListener("close",closeEvent=>{
+            util.log("WebSocket closed.");
+          });
         });
-        socket.addEventListener("message",msgEvent=>{
-          console.log(msgEvent);
-          //let msg = JSON.parse(msgEvent.data); //msg: {apdu:}
-        });
-        socket.addEventListener("close",closeEvent=>{
-          console.log(closeEvent);
-        });
-      } else {
-        sendMessage();
       }
-
-
-
-
-
+      /*else {
+        sendMessage();
+      }*/
 
       //(2) send and receive apdus
       /*
@@ -113,7 +129,7 @@
           let dicenumber = 7;
           for(let i=0;i<randomNumberBytes.length;i++) {
             let byte = randomNumberBytes[i];
-            if(byte)<252 { //multiple of 6
+            if(byte<252) { //multiple of 6
               dicenumber=byte%6+1;
             }
             if(i==randomNumberBytes.length-1) { //we have 6 times a number >=252
@@ -144,12 +160,14 @@
 </head>
 <body>
   <p><button id="requestDevice">connect</button></p>
-  <p id="debug">
-    <button id="getDevices" style="display:none">getDevices</button>
-    <button id="getChallenge">Get challenge</button>
-    <button id="proxy" style="display:block">proxy apdus</button>
-    <div>
-      <h3>dice example</h3>
+
+    <div id="row1" style="float:left;margin-top:10px;">
+      <button id="getDevices" style="display:none">getDevices</button>
+      <button id="getChallenge">Get challenge</button>
+      <button id="proxy" style="display:block">proxy apdus</button>
+    </div>
+    <div id="row2" style="float:left;margin:10px;">
+      <p>dice example</p>
       <svg id="diceSvg" style="border: 1px solid black;width:100px;height:100px;">
         <g style="display:none;"><circle cx="50" cy="50" r="10" fill="black" /></circle></g> <!-- stroke="green" stroke-width="4" -->
         <g style="display:none;" fill="black" >
@@ -186,9 +204,10 @@
           <text x="30" y="50">Error</text>
         </g>
       </svg>
-      Click square to roll dice.
-      </div>
-  </p>
+      <p>Click square to roll dice.</p>
+    </div>
+
+  <div style="clear:both"></div>
   <p>Status: <span id="status"></span></p> <!-- rename to error -->
   <p><textarea id="log" readonly rows="24" cols="80"></textarea></p>
 </body>
