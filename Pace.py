@@ -2,7 +2,7 @@
 Tobias Senger's implementation of the PACE protocol [pypace]
 
 Updated to work with my WebSocket server, which forwards APDUs. I changed
-bytestring encode/decode, logging added input/result checks and included a
+bytestring encode/decode, logging, added input/result checks and included a
 helper function.
 
 [pypace]: https://github.com/tsenger/pypace
@@ -14,6 +14,7 @@ from Crypto.Hash import CMAC, SHA
 from Crypto.Random import get_random_bytes
 
 from binascii import unhexlify, hexlify
+#pip install ecdsa
 from ecdsa.ellipticcurve import Point, CurveFp
 from ecdsa.curves import Curve
 

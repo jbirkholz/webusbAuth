@@ -360,6 +360,7 @@ function configure (device, interfaces) {
   }; //end of autoconfiguration
 
   let configureReader = (reader, device, interfaces) => {
+    if(typeof reader === 'undefined') throw new Error("No reader found to configure.");
     Reader = reader;
     //util.log(interfaces);
     Reader.descriptor = interfaces.find(i=>i.bInterfaceNumber===reader.interface); //just selected interface

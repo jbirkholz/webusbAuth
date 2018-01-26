@@ -6,7 +6,7 @@ This is a proof-of-concept developed for my diploma thesis. I was supported by H
 [CCID]: http://www.usb.org/developers/docs/devclass_docs/DWG_Smart-Card_CCID_Rev110.pdf
 
 ### Run Demo ###
-To run the demo, host use a (simple) web server, or included Python3.6 `HttpServer.py`. SSL/TLS encryption is mandatory, but can be left off for debugging.
+To run the demo, host a (simple) web server, or use included Python3.6 `HttpServer.py`. For remote APDU forwarding a WebSocket server example, `WebSocketServer.py` is included. `WebSocketServerPACE` implements PACE protocol with german id token (nPA) (don't forget to update password variable).
 
 Making a CCID available to WebUSB, unless they come with a WebUSB compatible driver, requires operating system specific actions.
 - For Windows [Zadig](http://zadig.akeo.ie/) is recommended to load the generic WinUSB driver for your CCID.
@@ -16,10 +16,4 @@ SUBSYSTEM=="usb", ATTR{idVendor}=="04e6", ATTR{idProduct}=="5720", MODE="0664", 
 ```
 Vendor Id and Product Id of your CCID can be identified using `lsusb` command.
 
-Authentication is exemplary and should be adapted to suit your used smart card. Smart card APDU level message exchange has to be implemented. I want to include a local ISO 7816-4 AUTHENTICATE example.
-
-
-### Developer Notes ###
-Developed using Atom.io Editor using the packages atom-ctags, docblockr, and symbols-tree-view.
-
-"function" declaration is used to have them shown in symbols-tree-view.
+SSL/TLS encryption is left off for debugging. To enable it see comments in `HttpServer.py` or `WebSocket*.py`.

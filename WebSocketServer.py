@@ -1,7 +1,7 @@
 """
 WebSocket based authentication server example (SimpleWebSocketServer) for Python >= 3.6
 - install using 'python3.6 -m pip install git+https://github.com/dpallot/simple-websocket-server.git'
-- use SSL/TLS as descibed at https://github.com/dpallot/simple-websocket-server
+- use SSL/TLS as descibed at https://github.com/dpallot/simple-websocket-server and update wss:// url in demo.html
 """
 #python version check
 from sys import version_info

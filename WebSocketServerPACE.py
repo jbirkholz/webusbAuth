@@ -3,7 +3,7 @@ WebSocket Server running Password Authenticated Connection Establishment (PACE) 
 
 Based on [SimpleWebSocketServer] and [pypace].
 Requires Python >= 3.6 and pip packages: pycryptodome, ecdsa, pytlv, git+https://github.com/dpallot/simple-websocket-server.git .
-To enable SSL/TLS see [SimpleWebSocketServer].
+To enable SSL/TLS see [SimpleWebSocketServer] and update wss:// url in demo.html.
 
 Usage: upon WebSocket connection, the client is sent APDUs, to which an response APDU is expected as answer.
 
