@@ -27,7 +27,7 @@
   document.addEventListener("readerStatus", function (e) { //CustomEvent readerStatus, triggered by ifd.js on document
     status.show(e.detail);
   });
-  document.addEventListener("logEvent", function(e) {
+  document.addEventListener("logEvent", function(e) { //CustomEvent to update debug log
     util.log(e.detail);
     status.clear();
   });
@@ -36,16 +36,11 @@
     status.clear();
     ifd.init().catch(error=>{status.show(error);util.log(error,true);throw error;});
 
-
+    //action event handler
     document.getElementById("requestDevice").addEventListener("click",(clickEvent)=>{
       status.clear();
       return ifd.requestDevice(clickEvent).catch(error=>{status.show(error);util.log(error,true);throw error;});
     });
-    document.getElementById("getDevices").addEventListener("click",()=>{
-      status.clear();
-
-      //TODO reimplement
-    }); //end of getDevices
 
     document.getElementById("getChallenge").addEventListener("click",()=>{
       status.clear();
@@ -57,12 +52,9 @@
       });
     });
 
-
-
     let socket = null;
     document.getElementById("proxy").addEventListener("click",()=>{
-      //demo receives apdu on WebSocket open and forwards single message
-      //(1) open websocket connection to host
+      //demo receives apdu on WebSocket open and forwards response message
       if(socket === null) {
         return ifd.initCard().then(initialized=>{ //init card
           if(!initialized) throw new Error("Smart card init failed.");
@@ -101,18 +93,6 @@
           });
         });
       }
-      /*else {
-        sendMessage();
-      }*/
-
-      //(2) send and receive apdus
-      /*
-        How should the protocol look like?
-        - endianness is not a problem at this layer, we do not encode here
-        - security is  an issue because we create a new connection outside our HTTP TLS session. Does the server check if its this valid session: No.
-          + if session and socket are the same we do not need any versioning, because we know its a current version
-
-       */
     });
 
     let diceElement = document.querySelector("svg#diceSvg");
@@ -162,7 +142,6 @@
   <p><button id="requestDevice">connect</button></p>
 
     <div id="row1" style="float:left;margin-top:10px;">
-      <button id="getDevices" style="display:none">getDevices</button>
       <button id="getChallenge">Get challenge</button>
       <button id="proxy" style="display:block">proxy apdus</button>
     </div>

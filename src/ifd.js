@@ -153,6 +153,7 @@ function internalTransceive (device, endpointOut, endpointIn, message) {
  * @return {Promise<ArrayBuffer>}  - Promise resolving to repsonse message
  */
 function transceive (message) {
+  util.log(message);
   if(Device==null) throw new Error("No device connected");
   //TODO: see USBDevice info in console, on selected Info
   let device = Device;
@@ -176,7 +177,7 @@ function transceive (message) {
       if(document) document.dispatchEvent(statusEvent);
 
       util.log("<- "+util.array2HexString(inResult.data.buffer));
-      if (ccidStatus.errorMessage.length > 0) throw new Error(ccidStatus.errorMessage); //util.log(ccidStatus.errorMessage);
+      if (ccidStatus.errorMessage.length > 0) util.log(ccidStatus.errorMessage); //throw new Error(ccidStatus.errorMessage); //some CCID messages don't require an ICC, so an error message may be misleading
       return inResult.data.buffer;
     });
   });
@@ -211,9 +212,9 @@ function configure (device, interfaces) {
       configuration: configurationNum,
       interface: interfaceNum,
       alternate: alternateNum,
-      bulkOutEndpoint: bulkOutEndpoint,
-      bulkInEndpoint: bulkInEndpoint,
-      interruptInEndpoint: interruptInEndpoint
+      bulkOutEndpoint: bulkOutEndpoint.endpointNumber,
+      bulkInEndpoint: bulkInEndpoint.endpointNumber,
+      interruptInEndpoint: interruptInEndpoint.endpointNumber
     };
     return Promise.resolve(reader);
   };
@@ -238,147 +239,68 @@ function configure (device, interfaces) {
     return Promise.resolve(reader);
   };
 
-  //try possible reader configuration by descriptor information
+  //try to detech possible reader configuration by descriptor information
   let getAutodetectConfiguration = () => {
     //we have a USB device with at least one Smart Card class Interface Descriptor (see ccid.js:parseConfigurationDescriptor)
     if(device.configurations.length > 1) throw new Error("Only devices with 1 configuration supported.");
+    if(interfaces.length === 1) return getStaticConfiguration(device.configurations[0].configurationValue,interfaces[0].bInterfaceNumber,interfaces[0].bAlternateSetting);
 
+    //for a reader with multiple smart card interfaces, let the user insert a card in the slot he wants to use and select interface by checking for available card
+    //autodetection using smart card (interface) class descriptor  [interfaces/USBSmartCardInterfaces]
 
-
-    //simple case: 1 configuration, 1 interface, 1 alternate
-    if(device.configurations.length === 1 && interfaces.length === 1) {
-      if(device.configurations[0].interfaces[0].alternates.length === 1) {
-        let selectedConfiguration = device.configurations[0];
-        let selectedInterface = selectedConfiguration.interfaces[0];
-        let selectedAlternate = selectedInterface.alternates[0];
-        return Promise.resolve(getStaticConfiguration(selectedConfiguration.configurationValue,selectedInterface.interfaceNumber,selectedAlternate.alternateSetting));
-      }
-    }
-
-    //test case TODO: remove me
-    if(device.configurations.length === 1 && interfaces.length === 2) {
-      if(device.configurations[0].interfaces[1].alternates.length === 1) {
-        let selectedConfiguration = device.configurations[0];
-        let selectedInterface = selectedConfiguration.interfaces[1];
-        let selectedAlternate = selectedInterface.alternates[0];
-        return Promise.resolve(getStaticConfiguration(selectedConfiguration.configurationValue,selectedInterface.interfaceNumber,selectedAlternate.alternateSetting));
-      }
-    }
-
-    //trial and error. TODO: implement
-    if(device.configurations.length>1) {
-
- /**
- * Tries to detect configuration of a already requested reader
- * @return {[type]} [description]
- */
-  let detectReader = (readerUSBDevice) => {
-    readerUSBDevice = window.myusb; //for testing purposes
-    let readerConfiguration = {vendorId: null, productId: null, configuration: null, interface:null,alternate:null, bulkOutEndpoint:null, bulkInEndpoint:null};
-    readerConfiguration.vendorId = readerUSBDevice.vendorId;
-    readerConfiguration.productId = readerUSBDevice.productId;
-
-    let configurations = readerUSBDevice.configurations;
-    configurations.forEach((value,index,array)=>{
-      let configurationValue = value.configurationValue;
-      let interfaces = value.interfaces;
-      interfaces.forEach((interfaceObject, interfaceIndex,interfaceArray)=>{
-        let interfaceNumber = interfaceObject.interfaceNumber;
-        let alternates = interfaceObject.alternates;
-        alternates.forEach((alternate,alternateIndex,alternateArray)=>{
-          let alternateSetting = alternate.alternateSetting;
-          let interfaceClass = alternate.interfaceClass;
-          let endpoints = alternate.endpoints;
-
-
-          //endpoints.forEach((endpoint,endpointIndex,endpointArray)=>{
-          //  let endpointNumber = endpoint.endpointNumber;
-          //  let direction = endpoint.direction;
-          //  let type = endpoint.type;
-          //});
+    //configure and check an interface for inserted smart card. On success the reader is returned.
+    let tryInterface = (configurationNum,interfaceNum,alternateNum) => {
+      return getStaticConfiguration(configurationNum,interfaceNum,alternateNum).then(reader=>{ //create reader config object
+        return configureReader(reader, device, interfaces).then(()=>{ //configure reader
+          return hasCard().then(hasCard=>{
+            if(hasCard) return reader; else return hasCard;
+          })
         });
       });
-    });
-  };
+    };
 
-  /*
-  (async () => {for(let i=0;i<device.configurations.length;i++) {
-   await (async () =>{
-     //for every configuration do:
+    //run smart card check by index of smart card class descriptor object
+    let checkInterface = (index) => {
+      let configurationNum = device.configurations[0].configurationValue;
+      let interfaceNum = interfaces[index].bInterfaceNumber;
+      let alternateNum = interfaces[index].bAlternateSetting;
+      return tryInterface(configurationNum,interfaceNum,alternateNum);
+    };
 
-     for(let i=0;i<device.configuration.interfaces.length;i++) {
-       await (async () => {
-         //for every interface do:
-         //claim interface, then watch alternatives
-
-         let claimedInterface = device.configuration.interfaces.find(element=>{
-           return element.claimed;
-         });
-
-         for(let i=0;i<claimedInterface.alternates.length;i++) {
-           await (async ()=>{
-             //for every altenate do:
-             //select alternate
-             //test alternate
-             //let selectedAlternate = claimedInterface.alternate;
-             //let endpoints = selectedAlternate.endpoints;
-             //let interruptIn = endpoints.find(element=>{return element.type==="interrupt" && element.direction==="in";});
-             //let bulkOut = endpoints.find(element=>{return element.type==="bulk" && element.direction==="out";});
-             //let bulkIn = endpoints.find(element=>{return element.type==="bulk" && element.direction==="in";});
-
-             //check endpoints
-             //checkEndpoints(device,)
-           })();
-         }
-       })();
-     }
-   })();
- }})();*/
-
-    //naive approach to take first Interface and create Reader configuration object
-    /*util.log(interfaces);
-    let selectedConfiguration = device.configurations.find(c=>c.configurationValue===device.configurations[0].configurationValue);
-    let selectedInterface = selectedConfiguration.interfaces.find(i=>i.interfaceNumber===interfaces[1].bInterfaceNumber);
-    let selectedAlternate = selectedInterface.alternates.find(a=>a.alternateSetting===selectedInterface.alternates[0].alternateSetting);
-
-    //TODO: test configuration
-    return configureReader(reader,device,interfaces).then(()=>{
-      console.log("check for card");
-    });*/
-
-
-    //device isn't configured yet, configuration and interface are not set yet.
-    /*let endpoints = reader.configuration.interfaces.find(e=>e.claimed).alternate.endpoints;
-    let bulkOutEndpoint = endpoints.find(e=>e.direction==="out" && e.type==="bulk");
-    let bulkInEndpoint = endpoints.find(e=>e.direction==="in" && e.type==="bulk");
-    let interruptInEndpoint = endpoints.find(e=>e.direction==="in" && e.type==="interrupt");*/
-
-    }
+    //loop through all available interfaces in smart card class descriptor object
+    let checkInterfaces = (index) => {
+      if(typeof index === 'undefined') {
+        index = 0;
+        //show ui message
+        util.log("Insert a smart card into your reader for autoconfiguration.");
+        let statusEvent = new CustomEvent('readerStatus',{detail: "Insert a smart card into your reader for autoconfiguration."}); //document.dispatchEvent //requires document. document.addEventListener("selectionFired", function (e) {e.detail.x
+        if(document) document.dispatchEvent(statusEvent);
+      }
+      return checkInterface(index).then(result=>{
+        if(!result) {
+          if(index+1 <= interfaces.length-1) {
+            return checkInterfaces(index+1);
+          } else {
+            util.log("No smart card found for autoconfiguration. Retrying.")
+            return checkInterfaces(0);
+          }
+        } else {
+          return result;
+        }
+      });
+    };
+    return checkInterfaces();
 
     //reaching here means we couldn't configure it with any attempts above
-    throw new Error("Please add your reader configuratino to suppoertedReaders variable. It could not be configured automatically.");
+    throw new Error("Please add your reader configuration to supportedReaders variable. It could not be configured automatically.");
   }; //end of autoconfiguration
 
-  let configureReader = (reader, device, interfaces) => {
+  var configureReader = (reader, device, interfaces) => {
     if(typeof reader === 'undefined') throw new Error("No reader found to configure.");
     Reader = reader;
     //util.log(interfaces);
     Reader.descriptor = interfaces.find(i=>i.bInterfaceNumber===reader.interface); //just selected interface
     Reader.device = device;
-    /*Reader.status = {
-      _ifdhandlerMessage: "No Smart Card reader configured.", //TODO: maybe without _ see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Functions/set
-      set ifdhandlerMessage(value) {
-        Reader.status._ifdhandlerMessage = value;
-      },
-      get ifdhandlerMessage() {
-        return Reader.status._ifdhandlerMessage;
-      },
-      _lastResponse: [],
-      lastResponse: function(statusByte, errorByte) {
-        if(typeof statusByte === 'undefined' && typeof errorByte === 'undefined') return _lastResponse;
-        Reader.status._lastResponse = [statusByte,errorByte,Date.now()];
-      }
-    };*/
     util.log(Reader,false,true);
     window.myusb = Reader;
 
@@ -394,11 +316,14 @@ function configure (device, interfaces) {
     }
   };
 
-  //let reader = staticConfiguration(1,1,0);
-  //let reader = supportedConfiguration();
-  //let reader =
-  return getSupportedConfiguration().then(reader=>{return configureReader(reader, device, interfaces);});
-  //return getAutodetectConfiguration().then(reader=>{return configureReader(reader, device, interfaces);});
+  //to configure your reader manually, use getStaticConfiguration and insert its following parameters manually: configurationNum,interfaceNum,alternateNum
+  //return getStaticConfiguration(1,1,0).then(reader=>{return configureReader(reader, device, interfaces);});
+
+  //to configure your reader by a configuration given in supportedReaders array, use getSupportedConfiguration
+  //return getSupportedConfiguration().then(reader=>{return configureReader(reader, device, interfaces);});
+
+  //to configure your reader using autodetection, use getAutodetectConfiguration
+  return getAutodetectConfiguration().then(reader=>{return configureReader(reader, device, interfaces);});
 }
 
 
@@ -466,12 +391,12 @@ function hasCard() {
  * returns ifd's card status
  * @return {Promise<Number>} CCID bmICCStatus 0="no card",1="unpowered card",2="powered card"
  */
-function getCardStatus() {
+function getCardStatus() { //TODO: may throw No ICC present
   return transceive(ccid.ccidMessages.PC_to_RDR_GetSlotStatus()).then(arrayBuffer => {
     util.log(arrayBuffer);
     let dataView = new DataView(arrayBuffer);
-    bStatus = dataView.getUint8(7);
-    bError = dataView.getUint8(8);
+    let bStatus = dataView.getUint8(7);
+    let bError = dataView.getUint8(8);
 
     let bmICCStatus = bStatus &0x03;
     let bmCommandStatus = (bStatus>>6)&0x03; //unused
