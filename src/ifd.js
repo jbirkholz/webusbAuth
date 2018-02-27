@@ -1,15 +1,9 @@
 /**
  * IFD Handler for Smart Card class reader
  *
- * - reader/CCID configuration of endpoints has to be done manually, see supportedReaders variable.
- * - init() has to be run. Not run automatically for custom error handling.
  * - limitation: only 1 active CCID/reader used exclusively in (this) one browser context (tab/window)
  *
- * TODO
- * - check if device is in use
- *
- * OPTIONAL
- * - support different reader revision configurations
+ * - init() has to be run
  *
  * Copyright (C) 2017, Jan Birkholz <jbirkhol@informatik.hu-berlin.de>
  */
@@ -18,7 +12,7 @@ import * as util from "./util.js";
 import * as ccid from "./ccid.js";
 
 /**
- * Selected WebUSB Interface Device
+ * Selected WebUSB (Interface) Device
  * @type {USBDevice}
  */
 var Device;
@@ -30,13 +24,6 @@ var Interfaces;
 /**
  * Active reader configuration. Eg {vendorId:0x04E6,productId:0x5790,configuration:1,interface:0,alternate:0,bulkOutEndpoint:1,bulkInEndpoint:2,descriptor:{USBDescriptor},device:{USBDevice}}
  * @type {Object}
- * {
- * status: {
- *   ifdhandlerMessage: "",
- *   lastResponse: function() {return[statusByte,errorByte, SetterTimestamp]}
- *   lastResponse: function(statusByte,errorByte) {}
- * }
- * }
  */
 var Reader;
 
@@ -278,13 +265,14 @@ function configure (device, interfaces) {
       }
       return checkInterface(index).then(result=>{
         if(!result) {
-          if(index+1 <= interfaces.length-1) {
+          if(index+1 <= interfaces.length-1) { //continue to next iface
             return checkInterfaces(index+1);
           } else {
             util.log("No smart card found for autoconfiguration. Retrying.")
             return checkInterfaces(0);
           }
         } else {
+          //TODO: releaseInterface(interfaceNumber); for unused interfaces
           return result;
         }
       });
@@ -307,6 +295,7 @@ function configure (device, interfaces) {
     if(reader) {
       return device.selectConfiguration(reader.configuration).then(()=>{ //almost always 1. Windows takes first configuration only.
         return device.claimInterface(reader.interface).then(() => { //contine after either .then or .error
+          //failing claim indicates interface in use
           return device.selectAlternateInterface(reader.interface,reader.alternate).then(()=>{
             return device.reset();
           });
@@ -335,6 +324,7 @@ function configure (device, interfaces) {
 function init (device) { //TODO reset device? already done in ControlTransfer
   let initDevice = (device) => {
     Device = device;
+    window.myusb = device;
     //window.myusb = Reader; //TODO: remove debug variable
     //util.log(device); //log'd in Reader obj
     return getConfigurationDescriptor(device).then((USBSmartCardInterfaces)=> {
@@ -493,4 +483,4 @@ let waitForCard = (waitTime = 0) => {
   return {exit:() => {clearInterval(intervalId);}};
 };*/
 
-export {Device as USBDevice, Interfaces as SmartCardInterfaces, listenInterrupt, internalTransceive,transceive, configure, requestDevice, init, initCard, sendAPDU, hasCard};
+export {requestDevice, init, initCard, sendAPDU, hasCard}; //Device as USBDevice, Interfaces as SmartCardInterfaces,

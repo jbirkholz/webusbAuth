@@ -84,5 +84,5 @@ class AuthenticationExample(WebSocket):
     def handleClose(self):
         print(self.address, 'closed')
 
-server = SimpleWebSocketServer('', 8081, AuthenticationExample) #create WebSocket server from custom WebSocket instance, which handles all clients
+server = SimpleWebSocketServer('', 8082, AuthenticationExample) #create WebSocket server from custom WebSocket instance, which handles all clients
 server.serveforever()

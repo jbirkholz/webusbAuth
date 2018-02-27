@@ -26,18 +26,24 @@ from Pace import Pace   #sudo python3.6 -m pip install pycryptodome
 
 class AuthenticationExample(WebSocket):
     def handleMessage(self):    #WebSocket session, included in self is automatically saved and loaded for each request
-        self.responseAPDU = self.data
-        print(self.address,'received', ''.join('%02x ' % byte for byte in self.responseAPDU))
-        self.workerEvent.set() #unblock worker
+        if(type(self.data) is bytearray): #received apdu
+            self.responseAPDU = self.data
+            print(self.address,'received', ''.join('%02x ' % byte for byte in self.responseAPDU))
+            self.workerEvent.set() #unblock worker
+
+        if(type(self.data) is str): #received CAN string
+            can = self.data
+            print(self.address,'received', self.data)
+            try: #use try-exception to have errors outputted to terminal
+                self.workerEvent = threading.Event()
+                workerThread = Worker(self,can) #starts automatically and does not block SimpleWebSocketServer
+            except:
+                print("Unexpected error:", sys.exc_info())
+                raise
+
 
     def handleConnected(self):
         print(self.address, 'connected')
-        try: #use try-exception to have errors outputted to terminal
-            self.workerEvent = threading.Event()
-            workerThread = Worker(self) #starts automatically and does not block SimpleWebSocketServer
-        except:
-            print("Unexpected error:", sys.exc_info())
-            raise
 
     def handleClose(self):
         print(self.address, 'closed')
@@ -55,8 +61,9 @@ class Connection:
 
 #event and shared variable synchronized worker
 class Worker:
-    def __init__(self, websocket):
+    def __init__(self, websocket, can):
         self.websocket = websocket
+        self.can = can
         thread = threading.Thread(target=self.run, args=())
         thread.start()
 
@@ -64,10 +71,14 @@ class Worker:
         connection = Connection(self)
         pace_operator = Pace(connection)
         pw_ref   = 2 # CAN (password type)
-        password = "123456" #6 digit CAN, printed in the bottom right of the nPA front
+        password = self.can #6 digit CAN, printed in the bottom right of the nPA front
         pace_oid = [0x04, 0x00, 0x7f, 0x00, 0x07, 0x02, 0x02, 0x04, 0x02, 0x02] # PACE_ECDH_AES128
         chat = [0x06, 0x09, 0x04, 0x00, 0x7f, 0x00, 0x07, 0x03, 0x01, 0x02, 0x02, 0x53, 0x05, 0x3f, 0xff, 0xff, 0xff, 0xf7]
-        pace_operator.performPACE(pace_oid, bytes(password,'ascii'), pw_ref, chat)
+        try:
+            paceResult = pace_operator.performPACE(pace_oid, bytes(password,'ascii'), pw_ref, chat)
+            self.websocket.sendMessage(str(paceResult))
+        except:
+            self.websocket.sendMessage("-1") #already established PACE causes exception
 
     def transceive(self,msg):
         self.websocket.sendMessage(msg)
