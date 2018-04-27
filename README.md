@@ -8,6 +8,19 @@ This is a proof-of-concept developed for my diploma thesis. I was supported by H
 ### Run Demo ###
 To run the demo, host a (simple) web server and access it with a WebUSB compatible Browser e.g. Chrome/Chromium >= 61.
 
+```
+                             +- Google Chrome -------------+
+                             |-----------------------------|
+                             |                             |
+                             |      demo.html       +--WebSocket--+--> WebSocketServer.py
+                             |                      |      |      |    (send GET CHALLENGE and
+                             +----------------------|------+      |     output the cards result)
++-----+    +--------+        |                      v      |      |
+|Smart|<-->|USB CCID| <---WebUSB---> ifd.js ---> ccid.js   |      +--> WebSocketServerPACE.py
+|Card |    |Reader  |        |                             |           (Generate APDUs to
++-----+    +--------+        +-----------------------------+            Establish a PACE channel)
+```
+
 #### Web Server ####
 A simple, Python3.6 based web server, `HttpServer.py`, is included. For remote APDU forwarding a WebSocket server example, `WebSocketServer.py` is included. `WebSocketServerPACE` implements PACE protocol with german id token (nPA).
 
