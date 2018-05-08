@@ -18,7 +18,6 @@ class VICCProxy(WebSocket):
     def handleMessage(self):
         if (type(self.data) is bytearray): #received apdu
             self.responseAPDU = self.data
-            print(self.address,'received', ''.join('%02x ' % byte for byte in self.responseAPDU))
             self.workerEvent.set() #unblock worker
 
         if(type(self.data) is str): #received string
