@@ -13,11 +13,8 @@ Usage: upon WebSocket connection, the client is sent APDUs, to which an response
 #python version check
 from sys import version_info
 import sys
-if version_info[0] < 3 or (version_info[0] == 3 and version_info[1] < 6):
-    raise Exception("Python >= 3.6 required.")
 
 from SimpleWebSocketServer import SimpleWebSocketServer, WebSocket
-import secrets #https://docs.python.org/3.6/library/secrets.html#module-secrets
 import threading
 import time
 from Pace import Pace   #sudo python3.6 -m pip install pycryptodome
