@@ -21,6 +21,36 @@ To run the demo, host a (simple) web server and access it with a WebUSB compatib
 +-----+    +--------+       +----------------------------+           (Generate APDUs to
                                                                       Establish a PACE channel)
 ```
+#### Quick Start ####
+
+1. Start web server (`python3 HttpServer.py`)
+2. open `http://localhost:8000/demo.html` in Chrome
+3. Click "connect" and choose your USB CCID smart card reader
+
+##### Roll the Dice #####
+
+4. Insert smart card that accepts GET CHALLENGE (`00 84 00 00 00 00 01`)
+5. Clicking the square sends GET CHALLENGE; the card's response is translated to the appropriate number of pips on the dice's face
+
+##### GET CHALLENGE WebSocket #####
+
+4. Insert smart card that accepts GET CHALLENGE (`00 84 00 00 00 00 01`)
+5. `python3 WebSocketServer.py`
+6. Clicking "Get challenge" connects to WebSocketServer.py, which sends a GET CHALLENGE; the response is shown in the log.
+
+##### Relay from Browser to PC/SC #####
+
+4. Insert smart card
+5. `python3 WebSocketServerVICC.py`
+6. Start virtual smart card reader on localhost:35963 (i.e. start PCSC-Lite or SCardSvr.exe with the vpcd driver)
+7. Clicking "send" in the section "Remote nPA PACE" connects to WebSocketServerVICC.py, which relayes the card to the virtual smart card reader
+8. Accessing the card in the virtual reader via PC/SC is relayed through the WebSocket and through the browser; the website's log shows the command and response APDUs.
+
+##### Verify CAN with PACE #####
+
+4. Insert smart card that is capable of performing PACE (e.g. German ID card)
+5. `python3 WebSocketServerPACE.py`
+6. In the section "Remote nPA PACE", enter the card's CAN and click "send". The browser connects to WebSocketServerPACE.py, which verifies the CAN with PACE; the responses are shown in the log.
 
 #### Web Server ####
 A simple, Python3.6 based web server, `HttpServer.py`, is included. For remote APDU forwarding a WebSocket server example, `WebSocketServer.py` is included. `WebSocketServerPACE` implements PACE protocol with german id token (nPA).
