@@ -7,6 +7,8 @@
  * Copyright (C) 2017, Jan Birkholz <jbirkhol@informatik.hu-berlin.de>
  */
 
+import * as util from "./util.js";
+
 let currentbSeq = 0x00;
 let getbSeq = () => {
   let bSeq = currentbSeq;
@@ -27,12 +29,10 @@ let getbSeq = () => {
 function buildCcidMessage (bMessageType, abMessageSpecificHeader, abData) {
   let abDataLength = typeof abData !=='undefined' ? abData.length : 0;
 
-  //let header = ccidMessageHeader(bMessageType, abDataLength, abMessageSpecificHeader);
-  //set slot and sequence according to global config. TODO find better implementation
   let header = new Uint8Array(10);
   header.set([bMessageType],0);  //bMessageType (1)
   header.set(number2Uint8Array(abDataLength,true),1);  //dwLength (4) of additional data
-  header.set([0x00],5);  //slotNumber (1)
+  header.set([0x00],5);  //slotNumber (1). Only a single slot is supported.
   header.set([getbSeq()],6);  //sequenceNumber (1)
   if(typeof abMessageSpecificHeader !== 'undefined') header.set(abMessageSpecificHeader,7); //message specific bytes (3) OR status (1), error (1), message specific (1)
 
@@ -241,8 +241,8 @@ RDR_to_PC_HardwareError: (arrayBuffer) => {
 },
 };
 
-//basic check for each
-function defaultCcidHeader (arrayBuffer) { //TODO: do bStatus,bError checks
+//bStatus, bError checks are done separately in checkResponse
+function defaultCcidHeader (arrayBuffer) {
   let ccidHeader = new DataView(arrayBuffer,0,10);
   let bMessageType = ccidHeader.getUint8(0);
   let dwLength = ccidHeader.getUint32(1);
@@ -286,7 +286,8 @@ let getSmartCardInterfaceDescriptorIndices = (dataView,numInterfaces) => {
   while(i<dataView.byteLength) {
     let descriptorType = dataView.getUint8(i+1);
     let bInterfaceClass = dataView.getUint8(i+5);
-    if(descriptorType==0x04 && bInterfaceClass == 0x0B) { //Interface descriptor, Smart Card Class
+    if(descriptorType==0x04 && (bInterfaceClass === 0x0B || bInterfaceClass === 0xFE || bInterfaceClass === 0xFF)) { //Interface descriptor, Smart Card Class
+      if(bInterfaceClass!== 0x0B) util.log("Warning: using interface of class application or vendor specific, not smart card."); //bInterfaceClass==0xFE || 0xFF
       SmartCardInterfaceDescriptorsIndices.push(i);
       if(SmartCardInterfaceDescriptorsIndices.length === numInterfaces) break; //we have what we want
     }
@@ -395,7 +396,7 @@ function checkResponse(response,originalMessage) {
   };
   let bmICCStatusMessage = bmICCStatusMessages[bmICCStatus];
 
-  let errorTable = { //TODO: add comments for missing ranges
+  let errorTable = {
     0xFF: 'CMD_ABORTED',
     0xFE: 'ICC_MUTE',
     0xFD: 'XFR_PARITY_ERROR',
@@ -420,8 +421,7 @@ function checkResponse(response,originalMessage) {
     if(errorTable[bError]) errorMessage = errorTable[bError]; else errorMessage = "Unknown error: 0x"+bError.toString(16);
   }
 
-  //RDR_to_PC_SlotStatus specific error messages
-  //TODO add other Response Message Specific answers
+  //important error messages from CCID 1.1 Standard
   if(bmCommandStatus===1 && bmICCStatus===2 && bError===5) { errorMessage = "bSlot does not exist";}
   if(bmCommandStatus===1 && bmICCStatus===2 && bError==0xFE) {errorMessage = "No ICC present";}
   if(bmCommandStatus===1 && bmICCStatus===1 && bError==0xFB) { errorMessage = "Hardware error";}
@@ -430,11 +430,5 @@ function checkResponse(response,originalMessage) {
 
   return {'iccStatus': bmICCStatus, 'iccStatusMessage': bmICCStatusMessage, 'errorMessage': errorMessage};
 }
-
-//TODO: implement CCID handler (doing send and receive)
-//TODO: implement response checker (status and error bytes), outputting errors
-
-//TODO: check reader dwFeatures if it has autovoltage, autobaud, ... since we do not manually configure
-
 
 export {ccidMessages, parseConfigurationDescriptor, checkResponse};
