@@ -178,26 +178,28 @@ class Pace:
         self.curve_brainpoolp256r1 = CurveFp( _p, _a, _b)
         self.pointG = Point(self.curve_brainpoolp256r1, _Gx, _Gy, self._q)
 
+    #we are server/terminal
     def performPACE(self, algorithm_oid, password, pw_ref, chat = None):
         if not isinstance(password,bytes): raise Exception("Password has to be an array of bytes with ASCII encoded characters.")
         self.__sendMSESetAt(algorithm_oid, pw_ref, chat)
 
-        encryptedNonce = self.__sendGA1()
+        encryptedNonce = self.__sendGA1() #receive nonce
         logging.info("PACE encrypted nonce: " + toHexString(list(encryptedNonce)))
-        decryptedNonce = self.__decryptNonce(encryptedNonce, password)
+        decryptedNonce = self.__decryptNonce(encryptedNonce, password) #ICC nonce
         logging.info("PACE decrypted nonce: " + toHexString(list(decryptedNonce)))
 
-        PCD_PK_X1 = self.__getX1()
+        #1st DH key agreement
+        PCD_PK_X1 = self.__getX1() #terminal (temp) pubkey. SK=SecureKey/privKey
         logging.info("PACE PCD_PK_X1: "+toHexString(list(PCD_PK_X1)))
-        PICC_PK_Y1 = self.__sendGA2(PCD_PK_X1)
+        PICC_PK_Y1 = self.__sendGA2(PCD_PK_X1) #icc (temp) pubkey
         logging.info("PACE PICC_PK_Y1: "+toHexString(list(PICC_PK_Y1)))
 
-        PCD_PK_X2 = self.__getX2(PICC_PK_Y1, decryptedNonce)
+        PCD_PK_X2 = self.__getX2(PICC_PK_Y1, decryptedNonce) #2nd key agreement(ownSK,otherPK,D)
         logging.info("PACE PCD_PK_X2: "+toHexString(list(PCD_PK_X2)))
         PICC_PK_Y2 = self.__sendGA3(PCD_PK_X2)
         logging.info("PACE PICC_PK_Y2: "+toHexString(list(PICC_PK_Y2)))
 
-        sharedSecretK = self.__getSharedSecret(PICC_PK_Y2)
+        sharedSecretK = self.__getSharedSecret(PICC_PK_Y2) #sharedKey
         logging.info("PACE Shared Secret K: "+toHexString(list(sharedSecretK)))
 
         kenc = self.__kdf(sharedSecretK, 1)

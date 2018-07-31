@@ -5,23 +5,36 @@ This is a proof-of-concept developed for my diploma thesis. I was supported by H
 [WebUSB]: https://wicg.github.io/webusb/
 [CCID]: http://www.usb.org/developers/docs/devclass_docs/DWG_Smart-Card_CCID_Rev110.pdf
 
-### Run Demo ###
+### Demo ###
 To run the demo, host a (simple) web server and access it with a WebUSB compatible Browser e.g. Chrome/Chromium >= 61.
 
 ```
-                            +- Google Chrome ------------+      +--> WebSocketServer.py
+                            +- Chrome/Chromium ----------+      +--> WebSocketServer.py
                             |----------------------------|      |    (send GET CHALLENGE and
                             |                            |      |     output the cards result)
                             |     demo.html       +--WebSocket--+
                             |                     |      |      +--> WebSocketServerVICC.py
                             +---------------------|------+      |    (make card available via PC/SC
-+-----+    +--------+       |                     v      |      |     on server in virtual reader)
-|Smart|<-->|USB CCID| <--WebUSB--> ifd.js <--> ccid.js   |      |
++-----+    +--------+       |                     |      |      |     on server in virtual reader)
+|Smart|<-->|USB CCID| <--WebUSB----> ifd.js <-----+      |      |
 |Card |    |Reader  |       |                            |      +--> WebSocketServerPACE.py
-+-----+    +--------+       +----------------------------+           (Generate APDUs to
-                                                                      Establish a PACE channel)
++-----+    +--------+       +----------------------------+           (generate APDUs to
+                                                                      establish a PACE channel)
 ```
+
+#### OS specific requirements ####
+Making a CCID available to WebUSB, unless they come with a WebUSB compatible driver or device, requires operating system specific actions.
+- For Windows [Zadig](http://zadig.akeo.ie/) is recommended to load the generic WinUSB driver for your CCID.
+- For Linux, the user's browser needs write access to the usb device. This can be done by creating a custom udev rule. See the following example rule created in `/etc/udev/rules.d/50-Identiv-4700F.rules` and adding your user to the `plugdev` group in `etc/group`. A generic rule for (specific) WebUSB devices could be added to the [udev project].
+```
+SUBSYSTEM=="usb", ATTR{idVendor}=="04e6", ATTR{idProduct}=="5720", GROUP="plugdev"
+```
+Vendor Id and Product Id of your CCID can be identified using `lsusb` command.
+
+[udev project]: http://linux-hotplug.sourceforge.net/
+
 #### Quick Start ####
+Once your WebUSB device is available for the browser, in user space, you can follow the quick start instructions to get the demos up and running. You need to enable SSL/TLS encryption, if you want to host the server on a different machine. SSL/TLS encryption is left off for debugging.
 
 1. Start web server (`python3 HttpServer.py`)
 2. open `http://localhost:8000/demo.html` in Chrome
@@ -51,20 +64,6 @@ To run the demo, host a (simple) web server and access it with a WebUSB compatib
 4. Insert smart card that is capable of performing PACE (e.g. German ID card)
 5. `python3 WebSocketServerPACE.py`
 6. In the section "Remote nPA PACE", enter the card's CAN and click "send". The browser connects to WebSocketServerPACE.py, which verifies the CAN with PACE; the responses are shown in the log.
-
-#### Web Server ####
-A simple, Python3.6 based web server, `HttpServer.py`, is included. For remote APDU forwarding a WebSocket server example, `WebSocketServer.py` is included. `WebSocketServerPACE` implements PACE protocol with german id token (nPA).
-
-SSL/TLS encryption is left off for debugging. To enable it see comments in `HttpServer.py` or `WebSocket*.py`.
-
-#### OS specific requirements ####
-Making a CCID available to WebUSB, unless they come with a WebUSB compatible driver or device, requires operating system specific actions.
-- For Windows [Zadig](http://zadig.akeo.ie/) is recommended to load the generic WinUSB driver for your CCID.
-- For Linux, the user's browser needs write access to the usb device. This can be done by creating a custom udev rule. See the following example rule created in `/etc/udev/rules.d/50-Identiv-4700F.rules` and adding your user to the `plugdev` group in `etc/group`.
-```
-SUBSYSTEM=="usb", ATTR{idVendor}=="04e6", ATTR{idProduct}=="5720", MODE="0600", GROUP="plugdev"
-```
-Vendor Id and Product Id of your CCID can be identified using `lsusb` command.
 
 ### Usage in standalone applications based on electron ###
 [electron] provides a Chromium based framework to build native applications for Linux, Mac and Windows. If Chromium >= 61 is used, it supports WebUSB. At time of testing, this was only the case with the beta version.
