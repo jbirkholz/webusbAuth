@@ -4,7 +4,7 @@
  * - for reference see openct src/ifd/ifd-ccid.c
  * @type {[type]}
  *
- * Copyright (C) 2017, Jan Birkholz <jbirkhol@informatik.hu-berlin.de>
+ * Copyright (C) 2017, Jan Birkholz <jbirkholz@users.noreply.github.com >
  */
 
 import * as util from "./util.js";

@@ -5,7 +5,7 @@
  *
  * - init() has to be run
  *
- * Copyright (C) 2017, Jan Birkholz <jbirkhol@informatik.hu-berlin.de>
+ * Copyright (C) 2017, Jan Birkholz <jbirkholz@users.noreply.github.com >
  */
 
 import * as util from "./util.js";
@@ -417,10 +417,11 @@ function initCard() {
 
 /**
  * Send and Receive smart card APDU
- * @param  {Uint8Array} apdu - smart card APDU message
- * @return {Promise<Uint8Array>} - smart card response APDU
+ * @param  {Uint8Array|Array} apdu - smart card APDU message
+ * @return {Promise<Uint8Array>} - smart card response APDU [abData,SW1,SW2]
  */
 function sendAPDU(apdu) {
+  if (Array.isArray(apdu)) apdu = new Uint8Array(apdu);
   let ccidMessage = ccid.ccidMessages.PC_to_RDR_XfrBlock(0,0,apdu);
   return transceive(ccidMessage).then(response=>{
     let responseAPDU = new Uint8Array(ccid.ccidMessages.RDR_to_PC_DataBlock(response)); //error checking is done in transceive

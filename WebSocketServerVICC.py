@@ -1,25 +1,31 @@
 """
-WebSocket Server Relaying APDUs from virtual smart card reader to a websocket
+WebSocket Server relaying APDUs from virtual smart card reader (vpcd) via a virtual smartcard (vicc) to a WebSocket.
 
-Based on [SimpleWebSocketServer] and [vsmartcard].
+Upon WebSocket connection, the (websocket) client will be connected to vpcd, which allows a host applications to send APDUs (via PC/SC). From the client, a response APDU is expected as the answer.
 
-Usage: upon WebSocket connection, the client will be connected to vpcd, which allows an host applications to send APDUs via PC/SC. From the client, an response APDU is expected as answer
+Example exchange:
+          WebSocket<--vicc<--vpcd<--app<--CAPDU
+  RAPDU-->WebSocket-->vicc-->vpcd-->app
 
 [SimpleWebSocketServer]: https://github.com/dpallot/simple-websocket-server
 [vsmartcard]: https://github.com/frankmorgner/vsmartcard
+[https://frankmorgner.github.io/vsmartcard/virtualsmartcard/api.html#virtualsmartcard-api]
 """
 import sys
 
 from SimpleWebSocketServer import SimpleWebSocketServer, WebSocket
-from virtualsmartcard.VirtualSmartcard import SmartcardOS, Iso7816OS, VirtualICC
+#from virtualsmartcard import SmartcardOS, Iso7816OS, VirtualICC
+from virtualsmartcard.VirtualSmartcard import SmartcardOS, Iso7816OS, VirtualICC # vsmartcard/virtualsmartcard/src/vpicc/virtualsmartcard as a site-package in python3/lib/python3.x/site-packages/virtualsmartcard. Try using required pip package readline instead of pyreadline.
 import threading
 
 class VICCProxy(WebSocket):
     def handleMessage(self):
         if (type(self.data) is bytearray): #received apdu
             self.responseAPDU = self.data
+            print(self.address,'received', ''.join('%02x ' % byte for byte in self.responseAPDU))
             self.workerEvent.set() #unblock worker
 
+        # use string to start the worker and hand over control of the smartcard communication to it
         if(type(self.data) is str): #received string
             print(self.address,'received', self.data)
             try: #use try-exception to have errors outputted to terminal
@@ -42,11 +48,13 @@ class Worker:
         thread.start()
 
     def run(self):
-        # vpcd is expected to be running on localhost:35963
+        # vpcd is expected to be running on localhost:35963 and handing out CAPDUs (from an application)
+        # "VirtualICC provides the connection to the virtual smart card reader. It fetches an APDU and other requests from the vpcd." [https://frankmorgner.github.io/vsmartcard/virtualsmartcard/api.html#virtualsmartcard-api]. App--vpcd--VirtualICC.
         vicc = VirtualICC(datasetfile=None, card_type='iso7816', host='localhost', port=35963)
-        vicc.os = WebSocketOS(self)
+        vicc.os = WebSocketOS(self, self.websocket)
         vicc.run()
 
+    # send apdu to client and wait for answer apdu from it to return it
     def transceive(self,msg):
         self.websocket.sendMessage(msg)
 
@@ -59,15 +67,19 @@ class Worker:
 
         return data
 
+# Implementation of a virtual smartcard, which relays all APDUs between vpcd and WebSocket (in this order).
+# https://frankmorgner.github.io/vsmartcard/virtualsmartcard/api.html#implementing-an-other-type-of-card
 class WebSocketOS(SmartcardOS):
-    def __init__(self, worker):
+    def __init__(self, worker, websocket):
         self.worker = worker
+        self.websocket = websocket
 
     def getATR(self):
         return Iso7816OS.makeATR(directConvention=True)
 
     def execute(self, msg):
+        print(self.websocket.address,'send ', ''.join('%02x ' % byte for byte in msg))
         return self.worker.transceive(msg)
 
-server = SimpleWebSocketServer('', 8081, VICCProxy) #create WebSocket server from custom WebSocket instance, which handles all clients
+server = SimpleWebSocketServer('', 8083, VICCProxy) #create WebSocket server from custom WebSocket instance, which handles all clients
 server.serveforever()

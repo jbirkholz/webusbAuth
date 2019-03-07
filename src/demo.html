@@ -4,11 +4,11 @@
   /**
    * Demo showing smart card based authentication using WebUSB and CCID
    *
-   * Copyright (C) 2017, Jan Birkholz <jbirkhol@informatik.hu-berlin.de>
+   * Copyright (C) 2017, Jan Birkholz <jbirkholz@users.noreply.github.com >
    */
   import * as ccid from "./ccid.js";
   import * as ifd from "./ifd.js";
-  import * as iso78164 from "./7816-4.js";
+  import * as capdu from "./capdu.js";
   import * as util from "./util.js";
 
   /**
@@ -48,7 +48,7 @@
     //send GET_CHALLENGE to ifd
     document.getElementById("getChallenge").addEventListener("click",()=>{
       status.clear();
-      let getChallengeAPDU = iso78164.apdus.GET_CHALLENGE(1);
+      let getChallengeAPDU = capdu.apdus.GET_CHALLENGE(1);
       return ifd.initCard().then(()=>{
         return ifd.sendAPDU(getChallengeAPDU).then(responseAPDU=>{
           util.log(responseAPDU);
@@ -170,14 +170,14 @@
   let remoteAPDUsocket = null;
   document.getElementById("remoteAPDU").addEventListener("click",()=>{
     //demo receives apdu on WebSocket open and forwards response message
-    //if(remoteAPDUsocket === null || socket.readyState!=1) {
+    if(remoteAPDUsocket === null || remoteAPDUsocket.readyState!=1) {
       return ifd.initCard().then(initialized=>{ //init card
         if(!initialized) throw new Error("Smart card init failed.");
 
         //open WebSocket
         remoteAPDUsocket = new WebSocket('ws://localhost:8082');
         remoteAPDUsocket.addEventListener("open", openEvent=>{
-
+          remoteAPDUsocket.send(""); //empty string to start server process
         });
 
         remoteAPDUsocket.addEventListener("message",msgEvent=>{ //in demo, server controls interaction
@@ -199,7 +199,7 @@
             });
             blobReader.readAsArrayBuffer(receivedAPDU);
           } else {
-            throw new Error("Blob encoded APDU expected from WebSocket server.")
+            throw new Error("Blob encoded APDU expected from WebSocket server.");
           }
         });
 
@@ -207,14 +207,64 @@
           util.log("WebSocket closed.");
         });
       });
-    //}
+    } else {
+      //assume card is still initialized
+      remoteAPDUsocket.send("");
+    }
+  });
+
+  //forward reader to a websocket server running vicc, which then connects to vpcd (app)
+  let viccvpcdSocket = null;
+  document.getElementById("viccvpcd").addEventListener("click",()=>{
+
+  if(socket === null || viccvpcdSocket.readyState!=1) { //no socket or not opened
+    return ifd.initCard().then(initialized=>{ //init card
+    if(!initialized) throw new Error("Smart card init failed.");
+
+    //open WebSocket
+    viccvpcdSocket = new WebSocket('ws://localhost:8083');
+    viccvpcdSocket.addEventListener("open", openEvent=>{
+      viccvpcdSocket.send("");
+    });
+
+    viccvpcdSocket.addEventListener("message",msgEvent=>{ //in demo, server controls interaction
+      let receivedAPDU = msgEvent.data;
+
+      //extract APDU from Blob
+      if(receivedAPDU instanceof Blob) {
+        let blobReader = new FileReader();
+        blobReader.addEventListener("loadend",event=>{
+          let apduArrayBuffer = blobReader.result;
+          let receivedAPDUUint8Array = new Uint8Array(apduArrayBuffer);
+
+          //send APDU to ccid
+          ifd.sendAPDU(receivedAPDUUint8Array).then(responseAPDU=>{
+            util.log(responseAPDU);
+            //forward response
+            viccvpcdSocket.send(responseAPDU);
+          });
+        });
+        blobReader.readAsArrayBuffer(receivedAPDU);
+      } else {
+        throw new Error("Blob encoded APDU expected from WebSocket server.");
+      }
+    });
+
+    viccvpcdSocket.addEventListener("close",closeEvent=>{
+      util.log("WebSocket closed.");
+    });
+  });
+  } else {
+    //assume card is still initialized
+    viccvpcdSocket.send("");
+  }
   });
 
     //dice example using random number from ifd
     let diceElement = document.querySelector("svg#diceSvg");
     diceElement.addEventListener("click", clickEvent => {
       status.clear();
-      let getChallengeAPDU = iso78164.apdus.GET_CHALLENGE(6); //6 bytes to have a multiple of 6 for the dice (252*6 and 4*6)
+      let getChallengeAPDU = capdu.apdus.GET_CHALLENGE(6); //6 bytes to have a multiple of 6 for the dice (252*6 and 4*6)
       return ifd.initCard().then(()=>{
         return ifd.sendAPDU(getChallengeAPDU).then(responseAPDU=>{
           if(typeof responseAPDU === 'undefined' || responseAPDU.length === 0) throw new Error("Smart card provided no response.");
@@ -256,63 +306,70 @@
   </script>
 </head>
 <body>
-  <p><button id="requestDevice">connect</button></p>
-    <div id="row1" style="float:left;margin-top:10px;">
+  <p><button id="requestDevice">connect reader</button></p>
+  <div id="row2" style="float:left;margin-left:10px;">
+    <h3>dice example</h3>
+    <svg id="diceSvg" style="border: 1px solid black;width:100px;height:100px;">
+      <g style="display:none;"><circle cx="50" cy="50" r="10" fill="black" /></circle></g> <!-- stroke="green" stroke-width="4" -->
+      <g style="display:none;" fill="black" >
+        <circle cx="25" cy="25" r="10"/></circle>
+        <circle cx="75" cy="75" r="10"/></circle>
+      </g>
+      <g style="display:none;" fill="black" >
+        <circle cx="25" cy="25" r="10"/></circle>
+        <circle cx="50" cy="50" r="10"/></circle>
+        <circle cx="75" cy="75" r="10"/></circle>
+      </g>
+      <g style="display:none;" fill="black" >
+        <circle cx="25" cy="25" r="10"/></circle>
+        <circle cx="75" cy="25" r="10"/></circle>
+        <circle cx="75" cy="75" r="10"/></circle>
+        <circle cx="25" cy="75" r="10"/></circle>
+      </g>
+      <g style="display:none;" fill="black" >
+        <circle cx="20" cy="20" r="10"/></circle>
+        <circle cx="80" cy="20" r="10"/></circle>
+        <circle cx="50" cy="50" r="10"/></circle>
+        <circle cx="80" cy="80" r="10"/></circle>
+        <circle cx="20" cy="80" r="10"/></circle>
+      </g>
+      <g style="display:none;" fill="black" >
+        <circle cx="25" cy="25" r="10"/></circle>
+        <circle cx="75" cy="25" r="10"/></circle>
+        <circle cx="50" cy="25" r="10"/></circle>
+        <circle cx="50" cy="75" r="10"/></circle>
+        <circle cx="75" cy="75" r="10"/></circle>
+        <circle cx="25" cy="75" r="10"/></circle>
+      </g>
+      <g style="display:none;" fill="black" >
+        <text x="30" y="50">Error</text>
+      </g>
+    </svg>
+    <p>Click square to roll dice</p>
+    </div>
+    <div style="float:left">
+      <h3>local use</h4>
       <button id="getChallenge">Get challenge</button><br />
       <button id="verify">Verify</button>
       0x<input id="verifyPath" type="text" style="width:100px"></input>
       <br /><button id="changePin">verified change pin</button>
     </div>
-    <div id="row1" style="float:left;margin-top:10px;margin-left:10px;">
+    <div style="float:left;margin-left:10px;">
+      <h3>forwarded use</h4>
       <div>
-      <button id="remoteAPDU">remote APDU tunnel</button>
+        <h4>remote WebSocket only</h4>
+      <button id="remoteAPDU">request remote CAPDU</button>
       </div>
       <div>
-      <h4>Remote nPA PACE</h4>
+        <h4>remote vicc, vpcd, app</h4>
+         <!--Remote WebSocket server accepting CAPDUs from virtual smartcard (vicc), which communicates (remote) with a virtual reader (vpcd), which is attached to the smartcard application.-->
+        <button id="viccvpcd">request remote CAPDU</button>
+      </div>
+      <div>
+      <h4>remote nPA PACE</h4>
       CAN: <input id="can" type="text" style="width:100px"></input><button id="sendRemotePACE">send</button>
       <!--<p id="canAnswer">&nbsp;</p>-->
       </div>
-    </div>
-
-    <div id="row2" style="float:left;margin-left:10px;">
-      <h3>dice example</h3>
-      <svg id="diceSvg" style="border: 1px solid black;width:100px;height:100px;">
-        <g style="display:none;"><circle cx="50" cy="50" r="10" fill="black" /></circle></g> <!-- stroke="green" stroke-width="4" -->
-        <g style="display:none;" fill="black" >
-          <circle cx="25" cy="25" r="10"/></circle>
-          <circle cx="75" cy="75" r="10"/></circle>
-        </g>
-        <g style="display:none;" fill="black" >
-          <circle cx="25" cy="25" r="10"/></circle>
-          <circle cx="50" cy="50" r="10"/></circle>
-          <circle cx="75" cy="75" r="10"/></circle>
-        </g>
-        <g style="display:none;" fill="black" >
-          <circle cx="25" cy="25" r="10"/></circle>
-          <circle cx="75" cy="25" r="10"/></circle>
-          <circle cx="75" cy="75" r="10"/></circle>
-          <circle cx="25" cy="75" r="10"/></circle>
-        </g>
-        <g style="display:none;" fill="black" >
-          <circle cx="20" cy="20" r="10"/></circle>
-          <circle cx="80" cy="20" r="10"/></circle>
-          <circle cx="50" cy="50" r="10"/></circle>
-          <circle cx="80" cy="80" r="10"/></circle>
-          <circle cx="20" cy="80" r="10"/></circle>
-        </g>
-        <g style="display:none;" fill="black" >
-          <circle cx="25" cy="25" r="10"/></circle>
-          <circle cx="75" cy="25" r="10"/></circle>
-          <circle cx="50" cy="25" r="10"/></circle>
-          <circle cx="50" cy="75" r="10"/></circle>
-          <circle cx="75" cy="75" r="10"/></circle>
-          <circle cx="25" cy="75" r="10"/></circle>
-        </g>
-        <g style="display:none;" fill="black" >
-          <text x="30" y="50">Error</text>
-        </g>
-      </svg>
-      <p>Click square to roll dice.</p>
     </div>
 
   <div style="clear:both"></div>

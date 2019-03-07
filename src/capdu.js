@@ -1,11 +1,11 @@
 /**
  * ISO 7816-4 command-response specific part
  *
- * Copyright (C) 2017, Jan Birkholz <jbirkhol@informatik.hu-berlin.de>
+ * Copyright (C) 2017, Jan Birkholz <jbirkholz@users.noreply.github.com >
  */
 
 /**
- * Build Extended ISO 7816-4 APDU.
+ * Build Extended ISO 7816-4 (command) APDU.
  * - optionally create class with Uint8Array/ArrayBuffer containing apdu and prototype getter/setter for properties
  * @param  {Number} CLA            Class Byte.
  * @param  {Number} INS            Instruction Byte.

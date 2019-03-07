@@ -1,7 +1,7 @@
 /**
  * Utility functions
  *
- * Copyright (C) 2017, Jan Birkholz <jbirkhol@informatik.hu-berlin.de>
+ * Copyright (C) 2017, Jan Birkholz <jbirkholz@users.noreply.github.com >
  */
 
 /**
