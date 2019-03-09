@@ -3,7 +3,12 @@ Example WebSocket Server sending a GET_CHALLENGE(1) CAPDU.
 
 - use SSL/TLS as descibed at https://github.com/dpallot/simple-websocket-server and update wss:// url in demo.html
 """
-from SimpleWebSocketServer import SimpleWebSocketServer, WebSocket
+# support PEP 582 (draft) packages
+import sys, os
+packagePath = '__pypackages__/'+str(sys.version_info[0])+'.'+str(sys.version_info[1])+'/lib'
+sys.path.append(os.path.join(os.getcwd(),packagePath))
+
+from SimpleWebSocketServer import SimpleWebSocketServer, WebSocket #python3 -m pip install git+https://github.com/dpallot/simple-websocket-server.git
 import threading
 
 class APDUExample(WebSocket):

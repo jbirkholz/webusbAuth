@@ -10,12 +10,19 @@ Example exchange:
 [SimpleWebSocketServer]: https://github.com/dpallot/simple-websocket-server
 [vsmartcard]: https://github.com/frankmorgner/vsmartcard
 [https://frankmorgner.github.io/vsmartcard/virtualsmartcard/api.html#virtualsmartcard-api]
+[vsmartcard/virtualsmartcard/src/vpicc/virtualsmartcard]: https://github.com/frankmorgner/vsmartcard/tree/master/virtualsmartcard/src/vpicc/virtualsmartcard
 """
-import sys
+# support PEP 582 (draft) packages
+import sys, os
+packagePath = '__pypackages__/'+str(sys.version_info[0])+'.'+str(sys.version_info[1])+'/lib'
+sys.path.append(os.path.join(os.getcwd(),packagePath))
 
-from SimpleWebSocketServer import SimpleWebSocketServer, WebSocket
-#from virtualsmartcard import SmartcardOS, Iso7816OS, VirtualICC
-from virtualsmartcard.VirtualSmartcard import SmartcardOS, Iso7816OS, VirtualICC # vsmartcard/virtualsmartcard/src/vpicc/virtualsmartcard as a site-package in python3/lib/python3.x/site-packages/virtualsmartcard. Try using required pip package readline instead of pyreadline.
+from SimpleWebSocketServer import SimpleWebSocketServer, WebSocket #python3 -m pip install git+https://github.com/dpallot/simple-websocket-server.git
+try:
+    from virtualsmartcard import SmartcardOS, Iso7816OS, VirtualICC
+except ImportError:
+    # vsmartcard/virtualsmartcard/src/vpicc/virtualsmartcard folder in site-packages, __pypackages__, current directory, or somewhere in $PATH
+    from virtualsmartcard.VirtualSmartcard import SmartcardOS, Iso7816OS, VirtualICC #https://github.com/frankmorgner/vsmartcard/tree/master/virtualsmartcard/src/vpicc/virtualsmartcard
 import threading
 
 class VICCProxy(WebSocket):

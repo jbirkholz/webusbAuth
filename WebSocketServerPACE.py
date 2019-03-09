@@ -5,14 +5,17 @@ Based on [SimpleWebSocketServer] and [pypace].
 Requires Python(3) and pip packages: pycryptodome, ecdsa, pytlv, git+https://github.com/dpallot/simple-websocket-server.git .
 To enable SSL/TLS see [SimpleWebSocketServer] and update wss:// url in demo.html.
 
-Usage: upon WebSocket connection, the client is sent APDUs, to which an response APDU is expected as answer.
+Usage: upon WebSocket connection, the client is sent APDUs, to which a response APDU is expected as answer.
 
 [SimpleWebSocketServer]: https://github.com/dpallot/simple-websocket-server
 [pypace]: https://github.com/tsenger/pypace
 """
-import sys
+# support PEP 582 (draft) packages
+import sys, os
+packagePath = '__pypackages__/'+str(sys.version_info[0])+'.'+str(sys.version_info[1])+'/lib'
+sys.path.append(os.path.join(os.getcwd(),packagePath))
 
-from SimpleWebSocketServer import SimpleWebSocketServer, WebSocket
+from SimpleWebSocketServer import SimpleWebSocketServer, WebSocket #python3 -m pip install git+https://github.com/dpallot/simple-websocket-server.git
 import threading
 import time
 from Pace import Pace   #python3 -m pip install pycryptodome
