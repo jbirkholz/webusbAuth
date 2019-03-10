@@ -1,11 +1,13 @@
 """
 Tobias Senger's implementation of the PACE protocol [pypace]
 
-Updated to work with my WebSocket server, which forwards APDUs. I changed
-bytestring encode/decode, logging, added input/result checks and included a
-helper function.
+Updated to work with my WebSocket server, which forwards APDUs.
+I changed bytestring encode/decode, logging, added input/result checks and
+included a helper function. Also I added install, crypto and protocol relevant
+comments.
 
 [pypace]: https://github.com/tsenger/pypace
+[PACE protocol specification (BSI TR3110 part2)]: https://www.bsi.bund.de/EN/Publications/TechnicalGuidelines/TR03110/BSITR03110-eIDAS_Token_Specification.html
 """
 
 # needs pycryptodome (pip install pycryptodome) #as sidenote pycryptodomex = pycryptodome+pycrypto combined (pycrypto must not be installed).
