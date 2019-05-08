@@ -18,11 +18,9 @@ packagePath = '__pypackages__/'+str(sys.version_info[0])+'.'+str(sys.version_inf
 sys.path.insert(1,os.path.join(os.getcwd(),packagePath))
 
 from SimpleWebSocketServer import SimpleWebSocketServer, WebSocket #python3 -m pip install git+https://github.com/dpallot/simple-websocket-server.git
-try:
-    from virtualsmartcard import SmartcardOS, Iso7816OS, VirtualICC
-except ImportError:
-    # vsmartcard/virtualsmartcard/src/vpicc/virtualsmartcard folder in site-packages, __pypackages__, current directory, or somewhere in $PATH
-    from virtualsmartcard.VirtualSmartcard import SmartcardOS, Iso7816OS, VirtualICC #https://github.com/frankmorgner/vsmartcard/tree/master/virtualsmartcard/src/vpicc/virtualsmartcard
+
+# vsmartcard/virtualsmartcard/src/vpicc/virtualsmartcard folder in site-packages, __pypackages__, current directory, or somewhere in $PATH
+from virtualsmartcard.VirtualSmartcard import SmartcardOS, Iso7816OS, VirtualICC #https://github.com/frankmorgner/vsmartcard/tree/master/virtualsmartcard/src/vpicc/virtualsmartcard
 import threading
 
 class VICCProxy(WebSocket):

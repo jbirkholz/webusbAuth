@@ -217,7 +217,7 @@
   let viccvpcdSocket = null;
   document.getElementById("viccvpcd").addEventListener("click",()=>{
 
-  if(socket === null || viccvpcdSocket.readyState!=1) { //no socket or not opened
+  if(viccvpcdSocket === null || viccvpcdSocket.readyState!=1) { //no socket or not opened
     return ifd.initCard().then(initialized=>{ //init card
     if(!initialized) throw new Error("Smart card init failed.");
 
@@ -355,7 +355,7 @@
       <br /><button id="changePin">verified change pin</button>
     </div>
     <div style="float:left;margin-left:10px;">
-      <h3>forwarded use</h4>
+      <h3>forwarded use</h3>
       <div>
         <h4>remote WebSocket only</h4>
       <button id="remoteAPDU">request remote CAPDU</button>

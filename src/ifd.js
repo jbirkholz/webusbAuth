@@ -140,7 +140,6 @@ function internalTransceive (device, endpointOut, endpointIn, message) {
  * @return {Promise<ArrayBuffer>}  - Promise resolving to repsonse message
  */
 function transceive (message) {
-  util.log(message);
   if(Device==null) throw new Error("No device connected");
   //TODO: see USBDevice info in console, on selected Info
   let device = Device;
@@ -330,7 +329,7 @@ function init (device) { //TODO reset device? already done in ControlTransfer
     return getConfigurationDescriptor(device).then((USBSmartCardInterfaces)=> {
       Interfaces = USBSmartCardInterfaces;
       //util.log(USBSmartCardInterfaces); //log'd in Reader obj
-      return configure(device, USBSmartCardInterfaces);
+      return configure(device, USBSmartCardInterfaces).then(()=>{util.log("Ifd configured")});
     });
   };
 
