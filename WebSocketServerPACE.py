@@ -18,9 +18,7 @@ sys.path.insert(1,os.path.join(os.getcwd(),packagePath))
 from SimpleWebSocketServer import SimpleWebSocketServer, WebSocket #python3 -m pip install git+https://github.com/dpallot/simple-websocket-server.git
 import threading
 import time
-from Pace import Pace   #python3 -m pip install pycryptodome
-                        #python3 -m pip install ecdsa
-                        #python3 -m pip install pytlv
+from Pace import Pace #python3 -m pip install pycryptodome ecdsa pytlv
 
 class AuthenticationExample(WebSocket):
     def handleMessage(self):    #WebSocket session, included in self is automatically saved and loaded for each request
@@ -69,11 +67,10 @@ class Worker:
         connection = Connection(self)
         pace_operator = Pace(connection)
 
-        # we arbitrarily chose authentication by CAN and PACE-ECDH-GM-AES-CBC-CMAC-128 algorithms; and provide a terminal/pcd auth template.
-        pw_ref   = 2 # CAN (password type)
+        # We chose Pace.py supported authentication with PACE-ECDH-GM-AES-CBC-CMAC-128 algorithms and CAN; and provide a terminal/pcd auth template.
+        pw_ref   = 2 # (1~MRZ,2~CAN,3~PIN,4~PUK) CAN has the advantage of not blocking the token as with an incorrect PIN
         password = self.can #6 digit CAN, printed in the bottom right of the nPA front
-        pace_oid = [0x04, 0x00, 0x7f, 0x00, 0x07, 0x02, 0x02, 0x04, 0x02, 0x02] # PACE_ECDH_AES128, algorithm object identifier (oid) see http://oid-info.com/get/0.4.0.127.0.7.2.2.4.2.2=id-PACE-ECDH-GM-AES-CBC-CMAC-128 (BSI-TR-03110-3) p.46 https://www.bsi.bund.de/EN/Publications/TechnicalGuidelines/TR03110/BSITR03110-eIDAS_Token_Specification.html, part 2
-        #GM~Generic Mapping (GM) based on a Diffie-Hellman Key Agreement (no extra fields included as in IM/CAM) [http://static.javadoc.io/org.jmrtd/jmrtd/0.6.4/org/jmrtd/protocol/PACEProtocol.html]
+        pace_oid = [0x04, 0x00, 0x7f, 0x00, 0x07, 0x02, 0x02, 0x04, 0x02, 0x02] # algorithm object identifier (oid) for PACE-ECDH-GM-AES-CBC-CMAC-128
         chat = [0x06, 0x09, 0x04, 0x00, 0x7f, 0x00, 0x07, 0x03, 0x01, 0x02, 0x02, 0x53, 0x05, 0x3f, 0xff, 0xff, 0xff, 0xf7] #Certificate Holder Authorization Template (CHAT)
         try:
             paceResult = pace_operator.performPACE(pace_oid, bytes(password,'ascii'), pw_ref, chat)

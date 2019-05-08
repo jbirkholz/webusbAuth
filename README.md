@@ -56,11 +56,11 @@ Once your WebUSB device is available for the browser, in user space, you can fol
 4. Install [virtualsmartcard](http://frankmorgner.github.io/vsmartcard/virtualsmartcard/README.html). The Python dependencies can be installed using `setup.py` or manually, see `WebSockerServerVICC.py`.
 5. Insert smart card
 6. `python3 WebSocketServerVICC.py`
-7. Start virtual smart card reader on localhost:35963 (i.e. start PCSC-Lite, or SCardSvr.exe with the vpcd driver)
+7. Start virtual smart card reader on localhost:35963 (i.e. start PCSC-Lite or SCardSvr.exe with the vpcd driver)
 8. Clicking "request remote CAPDU" in the section "remote vicc, vpcd, app" connects to WebSocketServerVICC.py, which relayes the card to the virtual smart card reader
 9. Accessing the card in the virtual reader via PC/SC is relayed through the WebSocket and through the browser; the website's log shows the command and response APDUs.
 
-Note: I included `vicc-vpcdHost.py` an example vpcd and app. You need Virtualsmartcards' Python files, either from the install above or manually downloaded, see `setup.py`.
+Note: I included `vicc-vpcdHost.py`, an example vpcd and app. You need Virtualsmartcard's Python files, either from the install above or manually downloaded, see `setup.py`.
 
 ##### Remote verify CAN with PACE #####
 4. Install required python packages manually or using `setup.py`, see `WebSocketServerPACE.py`.
@@ -68,18 +68,25 @@ Note: I included `vicc-vpcdHost.py` an example vpcd and app. You need Virtualsma
 6. `python3 WebSocketServerPACE.py`
 7. In the section "Remote nPA PACE", enter the card's CAN and click "send". The browser connects to WebSocketServerPACE.py, which verifies the CAN with PACE; the responses are shown in the log.
 
-Note: It is a bad idea to hand out your authentication token and its secret to a website, as in never give out your email password. In case of the nPA, EAC (Extended Access Control) is required to access the passport's data. But an attacker can use your entered PIN to authenticate on your behalf at a legitimate party. He can also do Pin-Management. Without technical understanding it is hard for users to distinguish a secure input method from an insecure. Maybe in the future browsers will provide this themselves. For now, a browser extension does the job. Or you own an advanced CCID, that provides a hardware PIN pad and transaction display.
+Note: It is a bad idea to hand out your authentication token and its secret to a website, as in never give out your email password. Without technical understanding it is hard for users to distinguish a secure input method from an insecure. Maybe in the future browsers will provide this themselves. For now, a browser extension does the job of providing such an input method. Or you own an advanced CCID, that provides a hardware PIN pad and transaction display.
+
+In case of the nPA, EAC (Extended Access Control) is required to access the passport's data. If the PIN instead of CAN is used as password, an attacker can use it to authenticate on your behalf at a legitimate party. He can also change the PIN. increase This example can be seen as a demonstration of how easier access increases the attack surface and thus the security risk associated.
+
+See [Pace.md](./Pace.md) for an overview of the PCD's implementation of the PACE protocol.
 
 ### Usage in standalone applications based on electron ###
-[Electron] provides a Chromium based framework to build native applications for Linux, Mac and Windows. If Chromium >= 61 and <= 67 is used, it supports WebUSB. Once started (`npm start`), `navigator.usb` should be available in the included developer console (Ctrl+Shift+I).
+[Electron] provides a Chromium based framework to build native applications for Linux, Mac, and Windows. If Chromium >= 61 and <= 67 is used, it supports WebUSB. Once started (`npm start`), `navigator.usb` should be available in the included developer console (Ctrl+Shift+I).
 
 [electron]: https://electronjs.org/
 [quick-start example]: https://github.com/electron/electron-quick-start
 
 ### Security considerations ###
 Be aware that WebUSB forwards your local USB device into the browser context whose security context is the origin (protocol, host, port) of the visited website. This means once you allow a USB device using the WebUSB Browser dialog, the website's scripts can run arbitrary USB commands on your local device. In the case of a WebUSB device that is designed to operate under these conditions it's fine.
-Classic USB devices on the other hand were not intended to be used remote as with WebUSB, and (function) abstraction layers like driver, library and application aren't present anymore. As a result the web application host serving the web application can use USB functions of the device, which may be flash(newFirmware) or deleteSomethingImportant().
+Classic USB devices on the other hand were not intended to be used remote as with WebUSB, and (function) abstraction layers like driver, library, and application aren't present anymore. As a result the web application host serving the web application can use USB functions of the device, which may be flash(newFirmware) or deleteSomethingImportant().
 In case of authentication, a website may use your (allowed) USB token as man-in-the-middle to authenticate on your behalf somewhere else. This can be recognized by the user, if the hardware token itself displays transaction information, and denied, if it has hardware based confirmation.
+
+### Design decisions ###
+I implemented the CCID interface device (ifd) handler in JavaScript using the WebUSB API to allow (progressive) web applications direct access to the hardware token. I could have forwarded all WebUSB communication to a remote party, which then handles the WebUSB device. The included forwarding examples proxy the hardware token on its apdu level via WebSocket to the remote party.
 
 ### TODO ###
 This is currently a side project, I occasionally work on in my spare time.
@@ -89,6 +96,9 @@ This is currently a side project, I occasionally work on in my spare time.
 - implement PACE with webcrypto?
   + Adding elliptic curve points function is not exposed. I can reimplement this, but the cryptographic functions should be provided by the browser. Question: How can a user distinguish safe crypto use from possibly unsafe, self implemented crypto?
 - software-engineer the project further: add automated testing, add automated doc generation?
+- (re)add simple hardware token authentication example eg 7816-4 VERIFY
+  + hardware token's implementations differ and I want a more general example
+- extend the dice example to visualize the token's rng numbers distribution
 
 ### Acknowledgements ###
 Since this project was only possible because of my work on my diploma thesis, a special thanks goes out to my two advisors for all the consultations, time, and effort. During that time I was supported by my alma mater, Humboldt-Universität zu Berlin (Humboldt University of Berlin), and Bundesdruckerei GmbH ("Federal Printing Office").
