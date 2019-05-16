@@ -1,17 +1,26 @@
 """
-WebSocket Server Relaying APDUs from virtual smart card reader to a websocket
+WebSocket Server relaying APDUs from virtual smart card reader (vpcd) via a virtual smartcard (vicc) to a WebSocket.
 
-Based on [SimpleWebSocketServer] and [vsmartcard].
+Upon WebSocket connection, the (websocket) client will be connected to vpcd, which allows a host applications to send APDUs (via PC/SC). From the client, a response APDU is expected as the answer.
 
-Usage: upon WebSocket connection, the client will be connected to vpcd, which allows an host applications to send APDUs via PC/SC. From the client, an response APDU is expected as answer
+Example exchange:
+          WebSocket<--vicc<--vpcd<--app<--CAPDU
+  RAPDU-->WebSocket-->vicc-->vpcd-->app
 
 [SimpleWebSocketServer]: https://github.com/dpallot/simple-websocket-server
 [vsmartcard]: https://github.com/frankmorgner/vsmartcard
+[https://frankmorgner.github.io/vsmartcard/virtualsmartcard/api.html#virtualsmartcard-api]
+[vsmartcard/virtualsmartcard/src/vpicc/virtualsmartcard]: https://github.com/frankmorgner/vsmartcard/tree/master/virtualsmartcard/src/vpicc/virtualsmartcard
 """
-import sys
+# support PEP 582 (draft) packages
+import sys, os
+packagePath = '__pypackages__/'+str(sys.version_info[0])+'.'+str(sys.version_info[1])+'/lib'
+sys.path.insert(1,os.path.join(os.getcwd(),packagePath))
 
-from SimpleWebSocketServer import SimpleWebSocketServer, WebSocket
-from virtualsmartcard.VirtualSmartcard import SmartcardOS, Iso7816OS, VirtualICC
+from SimpleWebSocketServer import SimpleWebSocketServer, WebSocket #python3 -m pip install git+https://github.com/dpallot/simple-websocket-server.git
+
+# vsmartcard/virtualsmartcard/src/vpicc/virtualsmartcard folder in site-packages, __pypackages__, current directory, or somewhere in $PATH
+from virtualsmartcard.VirtualSmartcard import SmartcardOS, Iso7816OS, VirtualICC #https://github.com/frankmorgner/vsmartcard/tree/master/virtualsmartcard/src/vpicc/virtualsmartcard
 import threading
 
 class VICCProxy(WebSocket):
@@ -20,6 +29,7 @@ class VICCProxy(WebSocket):
             self.responseAPDU = self.data
             self.workerEvent.set() #unblock worker
 
+        # use string to start the worker and hand over control of the smartcard communication to it
         if(type(self.data) is str): #received string
             print(self.address,'received', self.data)
             try: #use try-exception to have errors outputted to terminal
@@ -42,11 +52,13 @@ class Worker:
         thread.start()
 
     def run(self):
-        # vpcd is expected to be running on localhost:35963
+        # vpcd is expected to be running on localhost:35963 and handing out CAPDUs (from an application)
+        # "VirtualICC provides the connection to the virtual smart card reader. It fetches an APDU and other requests from the vpcd." [https://frankmorgner.github.io/vsmartcard/virtualsmartcard/api.html#virtualsmartcard-api]. App--vpcd--VirtualICC.
         vicc = VirtualICC(datasetfile=None, card_type='iso7816', host='localhost', port=35963)
         vicc.os = WebSocketOS(self)
         vicc.run()
 
+    # send apdu to client and wait for answer apdu from it to return it
     def transceive(self,msg):
         self.websocket.sendMessage(msg)
 
@@ -59,6 +71,8 @@ class Worker:
 
         return data
 
+# Implementation of a virtual smartcard, which relays all APDUs between vpcd and WebSocket (in this order).
+# https://frankmorgner.github.io/vsmartcard/virtualsmartcard/api.html#implementing-an-other-type-of-card
 class WebSocketOS(SmartcardOS):
     def __init__(self, worker):
         self.worker = worker

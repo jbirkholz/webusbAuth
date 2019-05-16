@@ -5,7 +5,7 @@
  *
  * - init() has to be run
  *
- * Copyright (C) 2017, Jan Birkholz <jbirkhol@informatik.hu-berlin.de>
+ * Copyright (C) 2017, Jan Birkholz <jbirkholz@users.noreply.github.com >
  */
 
 import * as util from "./util.js";
@@ -140,7 +140,6 @@ function internalTransceive (device, endpointOut, endpointIn, message) {
  * @return {Promise<ArrayBuffer>}  - Promise resolving to repsonse message
  */
 function transceive (message) {
-  util.log(message);
   if(Device==null) throw new Error("No device connected");
   //TODO: see USBDevice info in console, on selected Info
   let device = Device;
@@ -330,7 +329,7 @@ function init (device) { //TODO reset device? already done in ControlTransfer
     return getConfigurationDescriptor(device).then((USBSmartCardInterfaces)=> {
       Interfaces = USBSmartCardInterfaces;
       //util.log(USBSmartCardInterfaces); //log'd in Reader obj
-      return configure(device, USBSmartCardInterfaces);
+      return configure(device, USBSmartCardInterfaces).then(()=>{util.log("Ifd configured")});
     });
   };
 
@@ -417,10 +416,11 @@ function initCard() {
 
 /**
  * Send and Receive smart card APDU
- * @param  {Uint8Array} apdu - smart card APDU message
- * @return {Promise<Uint8Array>} - smart card response APDU
+ * @param  {Uint8Array|Array} apdu - smart card APDU message
+ * @return {Promise<Uint8Array>} - smart card response APDU [abData,SW1,SW2]
  */
 function sendAPDU(apdu) {
+  if (Array.isArray(apdu)) apdu = new Uint8Array(apdu);
   let ccidMessage = ccid.ccidMessages.PC_to_RDR_XfrBlock(0,0,apdu);
   return transceive(ccidMessage).then(response=>{
     let responseAPDU = new Uint8Array(ccid.ccidMessages.RDR_to_PC_DataBlock(response)); //error checking is done in transceive
