@@ -68,9 +68,11 @@ Note: I included `vicc-vpcdHost.py`, an example vpcd and app. You need Virtualsm
 6. run `python3 WebSocketServerPACE.py`
 7. In the section "Remote nPA PACE", enter the card's CAN and click "send". The browser connects to WebSocketServerPACE.py, which verifies the CAN with PACE; the responses are shown in the log.
 
-Note: It is a bad idea to hand out your authentication token and its secret to a website, as in never give out your email password. Without technical understanding it is hard for users to distinguish a secure input method from an insecure. Maybe in the future browsers will provide this themselves. For now, a browser extension does the job of providing such an input method. Or you own an advanced CCID, that provides a hardware PIN pad and transaction display.
+Note: It is a bad idea to hand out your authentication token and its secret to a website. Compared to giving away your email address and password, you give away a stronger authentication proof of ownership of a physical device. Vervier and Orru presented a closed [vulnerability of U2F tokens in combination with WebUSB](https://www.offensivecon.org/speakers/2018/markus-and-michele.html), whereby the user is tricked into allowing access to his security token via WebUSB by a similar looking phishing website.
 
 In case of the nPA, EAC (Extended Access Control) is required to access the passport's data. If the PIN instead of CAN is used as password, an attacker can use it to authenticate on your behalf at a legitimate party. He can also change the PIN. This example can be seen as a demonstration of how easier access increases the attack surface and thus the security risk associated.
+
+Generally speaking, without technical understanding it is hard for users to distinguish a secure input method from an insecure. For example, why is it secure to enter the PIN to a security token in a browser extension, but not inside the website? Maybe browsers will implement some form of secure input method, that cannot be replicated inside a website. Perhaps by adding to the `<input>` element in a similar fashion, a file has to be selected using a distinguishable, native element. Or anchored somewhere in the user interface, outside the rendering area of the website. For now, a browser extension does the job of providing such an input method. Or you own an advanced CCID, that provides a hardware PIN pad and transaction display. Which also protects against malicious software on the user's system.
 
 See [Pace.md](./Pace.md) for an overview of the PCD's implementation of the PACE protocol.
 
@@ -82,7 +84,7 @@ See [Pace.md](./Pace.md) for an overview of the PCD's implementation of the PACE
 
 ### Security considerations ###
 Be aware that WebUSB forwards your local USB device into the browser context whose security context is the origin (protocol, host, port) of the visited website. This means once you allow a USB device using the WebUSB Browser dialog, the website's scripts can run arbitrary USB commands on your local device. In the case of a WebUSB device that is designed to operate under these conditions it's fine.
-Classic USB devices on the other hand were not intended to be used remote as with WebUSB and (function) abstraction layers like driver, library, and application aren't present anymore. As a result the web application host serving the web application can use USB functions of the device, which may be flash(newFirmware) or deleteSomethingImportant().
+Classic USB devices on the other hand were not intended to be used remote as with WebUSB and (function) abstraction layers like driver, library, and application aren't present anymore. As a result the web application host serving the web application can use USB functions of the device, which may be flash(newFirmware) or deleteSomethingImportant() [[BadUSB](https://srlabs.de/wp-content/uploads/2014/07/SRLabs-BadUSB-BlackHat-v1.pdf)].
 In case of authentication, a website may use your (allowed) USB token as man-in-the-middle to authenticate on your behalf somewhere else. This can be recognized by the user, if the hardware token itself displays transaction information, and denied, if it has hardware based confirmation.
 
 ### Design decisions ###
